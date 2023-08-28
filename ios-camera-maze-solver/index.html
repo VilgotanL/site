@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Index</title>
+
+        <style>
+            html, body {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                display: block;
+            }
+            * {
+                user-select: none; /* attempted stop text selection on iphone */
+            }
+            body {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: lightgray;
+            }
+            canvas {
+                background: white;
+            }
+            p {
+                display: none;
+            }
+        </style>
+	</head>
+    <body>
+        <p></p>
+        <canvas></canvas>
+        <script>
+            // PUBLISHED AT https://editor.p5js.org/VilgotanL/full/mEcq3bLXf
+            let mousedown = false;
+
+            async function main() {
+                const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false }).catch(e => { throw new Error("No permission to access camera: " + e); });
+                const videoEl = document.createElement("video");
+                videoEl.srcObject = mediaStream;
+                videoEl.setAttribute("autoplay", ""); // stuff that apparently is needed for ios
+                videoEl.setAttribute("muted", "");
+                videoEl.setAttribute("playsinline", "");
+
+                async function loaded() {
+                    const mediaStreamTrack = mediaStream.getVideoTracks()[0];
+                    if(!mediaStreamTrack) throw new Error("No MediaStreamTrack");
+                    const aspectRatio = mediaStreamTrack.getSettings().width / mediaStreamTrack.getSettings().height;
+                    console.log("Aspect ratio:", aspectRatio);
+
+                    const PIXEL_ANTIDENSITY = 4; // pixels per canvas pixel
+                    const THICKEN_RADIUS = 1;
+                    const width = Math.floor(Math.min(window.innerWidth, window.innerHeight*aspectRatio)/PIXEL_ANTIDENSITY);
+                    const height = Math.floor(width/aspectRatio);
+                    
+                    const canvas = document.querySelector("canvas");
+                    canvas.width = width;
+                    canvas.height = height;
+                    canvas.style.width = (width*PIXEL_ANTIDENSITY)+"px";
+                    canvas.style.height = (height*PIXEL_ANTIDENSITY)+"px";
+                    const ctx = canvas.getContext("2d");
+
+                    const startPoint = [Math.floor(width/2), Math.floor(height*0.9)];
+                    const endPoint = [Math.floor(width/2), Math.floor(height*0.1)];
+
+                    function drawCross(x, y) {
+                        const unit = height*0.01;
+                        ctx.lineWidth = unit*0.5;
+                        ctx.strokeStyle = "red";
+                        ctx.beginPath();
+                        ctx.moveTo(x-unit*3, y);
+                        ctx.lineTo(x+unit*3, y);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(x, y-unit*3);
+                        ctx.lineTo(x, y+unit*3);
+                        ctx.stroke();
+                    }
+                    
+                    const DARKNESS_THRESHOLD = 0.5;
+                    function getDarkness(imageData, x, y) {
+                        let r = imageData.data[4*(y*width + x) + 0];
+                        let g = imageData.data[4*(y*width + x) + 1];
+                        let b = imageData.data[4*(y*width + x) + 2];
+                        return 1 - (0.2126*r + 0.7152*g + 0.0722*b) / (0.2126*256 + 0.7152*256 + 0.0722*256);
+                    }
+
+
+                    async function solveMaze(grid, imageData) {
+                        let visited = Array(width).fill(0).map(_ => Array(height).fill(null));
+                        let toVisit = [startPoint];
+                        let currentLength = 0;
+
+                        while(toVisit.length > 0) {
+                            let newToVisit = [];
+
+                            for(let p of toVisit) {
+                                if(visited[p[0]][p[1]] === null || visited[p[0]][p[1]] > currentLength) visited[p[0]][p[1]] = currentLength;
+                                for(let neighborOffs of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+                                    let neighbor = [neighborOffs[0] + p[0], neighborOffs[1] + p[1]];
+                                    if(neighbor[0] >= 0 && neighbor[1] >= 0 && neighbor[0] < width && neighbor[1] < height && !grid[neighbor[0]][neighbor[1]] && (visited[neighbor[0]][neighbor[1]] === null || visited[neighbor[0]][neighbor[1]] > currentLength + 1)) {
+                                        if(!newToVisit.some(n => n[0] === neighbor[0] && n[1] === neighbor[1])) {
+                                            newToVisit.push(neighbor);
+                                        }
+                                    }
+                                }
+                            }
+
+                            toVisit = newToVisit;
+                            currentLength++;
+                        }
+
+                        if(mousedown) {
+                            for(let x=0; x<width; x++) {
+                                for(let y=0; y<height; y++) {
+                                    if(visited[x][y] !== null) {
+                                        let value = Math.floor((visited[x][y]/currentLength)*255);
+                                        imageData.data[4*(y*width + x) + 0] = 0;
+                                        imageData.data[4*(y*width + x) + 1] = 0;
+                                        imageData.data[4*(y*width + x) + 2] = value;
+                                        imageData.data[4*(y*width + x) + 3] = 255;
+                                    }
+                                }
+                            }
+                        }
+
+                        if(visited[endPoint[0]][endPoint[1]] !== null) { // if there exists a valid path
+                            let curr = [endPoint[0], endPoint[1]];
+                            while(visited[curr[0]][curr[1]] !== null && visited[curr[0]][curr[1]] > 0) {
+                                imageData.data[4*(curr[1]*width + curr[0]) + 0] = 0;
+                                imageData.data[4*(curr[1]*width + curr[0]) + 1] = 255;
+                                imageData.data[4*(curr[1]*width + curr[0]) + 2] = 0;
+                                imageData.data[4*(curr[1]*width + curr[0]) + 3] = 255;
+
+                                let nextVisited = null;
+                                for(let neighborOffs of [[0, -1], [1, 0], [0, 1], [-1, 0]]) { // find next position
+                                    let neighbor = [neighborOffs[0] + curr[0], neighborOffs[1] + curr[1]];
+                                    if(visited[neighbor[0]][neighbor[1]] !== null && visited[neighbor[0]][neighbor[1]] < visited[curr[0]][curr[1]]) {
+                                        nextVisited = neighbor;
+                                        break;
+                                    }
+                                }
+                                if(!nextVisited) throw new Error("Unreachable error: no pixel neighbor with smaller distance");
+                                curr = nextVisited;
+                                
+                                //ctx.putImageData(imageData, 0, 0);
+                                //await new Promise(res => requestAnimationFrame(res));
+                            }
+                        }
+                    }
+
+                    async function update() {
+
+                        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+
+                        const imageData = ctx.getImageData(0, 0, width, height);
+                        const grid = Array(width).fill(0).map((_, x) => Array(height).fill(0).map((_, y) => getDarkness(imageData, x, y) >= DARKNESS_THRESHOLD));
+
+                        // Draw lines from sides horziontally at height/2 to disallow going around the maze
+                        for(let x=0; x<width; x++) {
+                            if(grid[x][Math.floor(height/2)]) break;
+                            grid[x][Math.floor(height/2)] = true;
+                        }
+                        for(let x=width-1; x>=0; x--) {
+                            if(grid[x][Math.floor(height/2)]) break;
+                            grid[x][Math.floor(height/2)] = true;
+                        }
+
+                        // Make all lines thicker so the solution doesn't show as right at the edges
+                        const gridPointsBeforeThickening = grid.flatMap((col, x) => col.flatMap((isDark, y) => isDark ? [[x, y]] : []));
+                        for(let p of gridPointsBeforeThickening) {
+                            for(let x = p[0]-THICKEN_RADIUS; x<=p[0]+THICKEN_RADIUS; x++) {
+                                for(let y = p[1]-THICKEN_RADIUS; y<=p[1]+THICKEN_RADIUS; y++) {
+                                    if(x >= 0 && y >= 0 && x < width && y < height) grid[x][y] = true;
+                                }
+                            }
+                        }
+
+                        if(mousedown) { // Display grid
+                            for(let x=0; x<width; x++) {
+                                for(let y=0; y<height; y++) {
+                                    let value = grid[x][y] ? 0 : 255;
+                                    imageData.data[4*(y*width + x) + 0] = value;
+                                    imageData.data[4*(y*width + x) + 1] = value;
+                                    imageData.data[4*(y*width + x) + 2] = value;
+                                    imageData.data[4*(y*width + x) + 3] = 255;
+                                }
+                            }
+                        }
+
+                        await solveMaze(grid, imageData);
+
+                        ctx.putImageData(imageData, 0, 0);
+
+                        drawCross(startPoint[0], startPoint[1]);
+                        drawCross(endPoint[0], endPoint[1]);
+
+                        setTimeout(update, 100);
+                    }
+                    update();
+                }
+
+                videoEl.addEventListener("loadeddata", async function() {
+                    loaded();
+                });
+                videoEl.play();
+            }
+            window.addEventListener("error", function(e) {
+                document.body.innerText = ""+e.error;
+            });
+            window.addEventListener("unhandledrejection", function(e) {
+                document.body.innerText = ""+e.reason;
+            });
+            window.addEventListener("load", function() {
+                main();
+            });
+            document.addEventListener("mousedown", (e) => { e.stopPropagation(); e.preventDefault(); mousedown = true; });
+            document.addEventListener("touchstart", (e) => { e.stopPropagation(); e.preventDefault(); mousedown = true; });
+            document.addEventListener("mouseup", (e) => { e.stopPropagation(); e.preventDefault(); mousedown = false; });
+            document.addEventListener("touchend", (e) => { e.stopPropagation(); e.preventDefault(); mousedown = false; });
+        </script>
+    </body>
+</html>
