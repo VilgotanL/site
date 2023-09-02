@@ -1,0 +1,21 @@
+* {
+    box-sizing: border-box;
+    font-family: 'Segoe UI';
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+}
+body {
+    margin: 1rem;
+}
+
+
+iframe[src*=leftbar] {
+    float: left;
+    margin-right: 1.3rem;
+    position: relative;
+    height: calc(100vh - 2rem - 4px);
+    border: 2px groove;
+}
