@@ -1,11 +1,13 @@
 * {
     box-sizing: border-box;
     font-family: 'Segoe UI';
+    color: #eeeeee;
 }
 
 html, body {
     margin: 0;
     padding: 0;
+    background: #111111;
 }
 
 body {
@@ -18,10 +20,13 @@ details {
 summary {
     font-size: 1.4rem;
     cursor: pointer;
-    user-select: none;
 }
 
 a {
     display: block;
     margin-block: 0.1rem;
+}
+a, a:visited {
+    color: Highlight;
+    text-decoration: none;
 }

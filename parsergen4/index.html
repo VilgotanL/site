@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Parser Generator 4</title>
+
+        <style>
+            * {
+                box-sizing: border-box;
+                font-family: Calibri;
+            }
+            html, body {
+                margin: 0;
+                padding: 0;
+            }
+            html {
+                height: 100%;
+                display: flex;
+            }
+            body {
+                flex-grow: 1;
+                display: flex;
+                padding: 1rem;
+                gap: 1rem;
+                background: linear-gradient(45deg, gray, lightgray);
+            }
+            section {
+                border: outset 2px;
+                background: white;
+            }
+
+            #gen-section {
+                flex: 1 0;
+                padding: 1rem;
+            }
+
+            #doc-section {
+                flex: 1 0;
+                padding-inline: 1rem;
+                overflow-y: auto;
+            }
+            #doc-section h1 {
+                font-size: 1.9rem;
+            }
+            #doc-section code {
+                border: inset 1px;
+                padding: 0.1rem 0.2rem;
+                background: #f0f0f0;
+                font-family: monospace;
+            }
+        </style>
+	</head>
+    <body>
+        <section id="gen-section">gen section</section>
+        <section id="doc-section">
+            <h1>About</h1>
+            <p>
+                This is a parser generator for JavaScript
+            </p>
+            <h2>Syntax</h2>
+            <p>
+                The grammar is comprised of definitions / production rules in the form<br />
+                <code>name = expression</code><br />
+                Names can only include alphanumeric characters (uppercase, lowercase, and digits) and <code>_</code>, and they cannot start with a digit<br />
+                The starting production rule is by default <code>main</code>, but the generated parser can be called with a specific starting production rule to allow parsing from any production rule.<br />
+                Important: whitespace is not treated differently to any other characters in parser gen 4.<br />
+            </p>
+            <p>
+                An expression can yield/emit values that will be part of the result of using the generated parser. Expressions can also yield nothing, or discard the yield from a sub-expression.<br />
+                An expression can chooose to not consume the input to the parser, leaving it to be consumed by another expression. The expression can still yield things or not yield anything.<br />
+                The output of the generated parser is an array-like object containing a list of yielded values.<br />
+            </p>
+            <p>
+                These are the expression types, not ordered in any particular order:
+            </p>
+            <table>
+                <tr>
+                    <th>Name</th>
+                    <th>Syntax</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>String</td>
+                    <td><code>"string here"</code></td>
+                    <td>Matches the specified string. Uses js-like escape sequences. Yields nothing.</td>
+                </tr>
+                <tr>
+                    <td>Concatenation</td>
+                    <td><code>expression1 expression2 ...</code></td>
+                    <td>Matches all the sub-expressions concatenated together. Concatenates the yields of the expressions. Fails (does not match) if any sub-expressions fail.</td>
+                </tr>
+                <tr>
+                    <td>Parentheses</td>
+                    <td><code>( expression )</code></td>
+                    <td>Matches the sub-expression. Just changes the precedence of the expression.</td>
+                </tr>
+                <tr>
+                    <td>Choice</td>
+                    <td><code>expression1 | expression2 | ...</code></td>
+                    <td>Matches the first matching sub-expression, or doesn't match if none match.</td>
+                </tr>
+                <tr>
+                    <td>Repeat</td>
+                    <td><code>{ expression }</code></td>
+                    <td>Greedily matches 0 or more repetitions of the sub-expression, as many repetitions as possible.</td>
+                </tr>
+                <tr>
+                    <td>Repeat 1 or more</td>
+                    <td><code>{ expression }+</code></td>
+                    <td>Greedily matches 1 or more repetitions of the sub-expression, as many as possible.</td>
+                </tr>
+                <tr>
+                    <td>Optional</td>
+                    <td><code>[ expression ]</code></td>
+                    <td>Matches the sub-expression if possible, otherwise matches but yields nothing.</td>
+                </tr>
+                <tr>
+                    <td>Not / Not followed by</td>
+                    <td><code>!expression</code></td>
+                    <td>Matches if the sub-expression does not match. Yields nothing. Because this only matches if the sub-expression is not matched, this will never consume anything.</td>
+                </tr>
+                <tr>
+                    <td>And / Followed by</td>
+                    <td><code>&expression</code></td>
+                    <td>Matches if the sub-expression matches, does not consume, and discards it's yield (yields nothing).</td>
+                </tr>
+                <tr>
+                    <td>No yield / Skip</td>
+                    <td><code>!!expression</code></td>
+                    <td>Matches if the sub-expression matches, and consumes, but discards it's yield (yields nothing).</td>
+                </tr>
+                <tr>
+                    <td>No consume / Yield following</td>
+                    <td><code>&&expression</code></td>
+                    <td>Matches if the sub-expression matches, does not consume, but yields anyway (yields the sub-expression's yield).</td>
+                </tr>
+                <tr>
+                    <td>Range</td>
+                    <td><code>A-B</code></td>
+                    <td>Matches any character in the inclusive range from the character before the hyphen to the character after the hyphen. Allows the same escape sequences as in strings, for example: <code>\x00-\xFF</code></td>
+                </tr>
+                <tr>
+                    <td>Backquote emit</td>
+                    <td><code>`text to emit`</code></td>
+                    <td>Yields the specified text, in the output of the generated parser as a javascript string. Allows escape sequences. This can be used to make the generated parser effectively be a compiler, by concatenating the javascript strings emitted by these in the parser's output, but this does lead to messy grammar code.</td>
+                </tr>
+                <tr>
+                    <td>Emit matched text</td>
+                    <td><code>%expression</code></td>
+                    <td>Matches the sub-expression but discards it's yield, and instead, yields the input text that the sub-expression consumed, in the output of the generated parser as a javascript string. Allows escape sequences. Can be used with backquote emits to make quick compilers.</td>
+                </tr>
+                <tr>
+                    <td>Named</td>
+                    <td><code>name(expression)</code></td>
+                    <td>Matches the sub-expression. Wraps the yield, a list of values, in a named value. Named values are explained later.</td>
+                </tr>
+                <tr>
+                    <td>Error</td>
+                    <td><code>Error(expression)</code></td>
+                    <td>TODO figure out how this should work</td>
+                </tr>
+            </table>
+            <p>
+                Comments start with <code>#</code>.
+            </p>
+            <h3>Named values</h3>
+            <p>
+                A named value is a grouped yield (list of values) with a name. In the parser's output it is an array-like object with the list of values.<br />
+                If you access a property on the named value, it returns all the named-values inside it with that name with concatenated together into one such named value, of course with yields concatenated.<br />
+                Named values in the output also have a .emitted property to get the emitted js strings joined together, and a .text property in case you want the consumed input text of the named value<br />
+                The return value of the generated parser functions the same as a named value.<br />
+            </p>
+            <p>
+                An relatively simple example:<br />
+                Grammar:<br />
+                <code>
+                    whitespace = { " " | "\t" | "\r" | "\n" } # Optional whitespace<br />
+                    _ = whitespace # An alias for whitespace that I like to use<br />
+                    integer = ["-" `-`] {%0-9}+ # Here we emit the digits as javascript strings by using %, you can also use backquote strings as showed for the - sign.<br />
+                    identifier = !0-9 {( A-Z | a-z | 0-9 | "_" )}+ # Here I show that you can do it a different and easier way, just use the .text property instead in javascript, and you dont have to emit stuff in grammar<br />
+                    <br />
+                    main = _ "{" _ Assignments({ assignment _ }) _ "}" _<br />
+                    assignment = Assignment( Key(identifier) _ "=" _ Value(expression) )<br />
+                    <br />
+                    expression<br />
+                        = Identifier(identifier)<br />
+                        | Integer(integer)<br />
+                </code><br />
+                I have made the named values start with an uppercase letter to make it easier to read, but they can even have the same name as production rules.<br />
+                Test input:<br />
+                <code>
+                    {
+                    my_thing = hello<br />
+                    a = b c = d}
+                </code><br />
+                JavaScript usage after generating the parser:<br />
+                <code>
+                    const input_text = `<br />
+                    {<br />
+                    my_thing = hello<br />
+                    a = b c = d}<br />
+                    `;<br />
+                    const ast = parse(input_text);<br />
+                    for(let assignment of ast.Assignments) {<br />
+                        if(assignment.Value.Integer) console.log(assignment.Key.emitted, "=", assignment.Value.Integer.emitted); // Here i use .emitted<br />
+                        else if(assignment.Value.Identifier) console.log(assignment.Key.emitted, "=", assignment.Value.Identifier.text); // Here i use .text instead to show the difference, it is easier because you don't need to emit/yield strings in the grammar<br />
+                        else throw new Error("Should not happen");<br />
+                    }
+                </code>
+            </p>
+            <p>TODO: show example of idend needed, show example of simple compiler (bf to c?)</p>
+        </section>
+    </body>
+</html>
