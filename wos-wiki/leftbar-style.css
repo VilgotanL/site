@@ -30,3 +30,17 @@ a, a:visited {
     color: Highlight;
     text-decoration: none;
 }
+
+
+.rawmat-basic-li {
+    color: #00bb00;
+}
+.rawmat-basicliquidgas-li {
+    color: #0099bb;
+}
+.rawmat-nonearthlike-li {
+    color: #bbbb00;
+}
+.rawmat-special-li {
+    color: #bb00bb;
+}
