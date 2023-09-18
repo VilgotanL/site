@@ -1,0 +1,16 @@
+
+main = `let p=0,m=[0];` block
+
+block = { instruction | loop | comment }
+
+instruction : "instruction"
+	= "+" `m[p]=(m[p]+1)%256;`
+	| "-" `m[p]=(m[p]+255)%256;`
+	| ">" `p++;if(p>=m.length)m.push(0);`
+	| "<" `p--;if(p<0)throw new Error("Pointer out of bounds");`
+	| "," `m[p]=(prompt("Enter char")||"\0").charCodeAt(0)%256;`
+	| "." `console.log(String.fromCharCode(m[p]));`
+
+loop : "loop" = `while(m[p]){` "[" block "]" `}`
+
+comment : "comment" = { !"+" !"-" !">" !"<" !"," !"." !"[" !"]" \x00-\xFF }+

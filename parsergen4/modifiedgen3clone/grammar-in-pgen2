@@ -1,0 +1,37 @@
+_ = {" " | "\t" | "\n" | comment}
+comment = "#" {!"\n" ANY} ["\n"]
+
+ANY = \x00-\xFF
+HEX = 0-9 | a-f | A-F
+identifier = Identifier((a-z | A-Z | "_") {a-z | A-Z | 0-9 | "_"})
+string = ('"' {!'"' !"\n" char(char)} '"') | ("'" {!"'" !"\n" char(char)} "'")
+char = escape | Char(!"\\" ANY)
+escape = Escape("\\" esc(escape_combos)) | HexEscape("\\" ("x" | "X") hex(HEX) hex(HEX)) # TODO add unicode & stuff later
+escape_combos = "n" | "t" | "r" | '"' | "'" | "\\" # TODO add more combos later
+
+
+main = _ { statement _}
+statement = Statement( name(identifier) _ "=" _ expr(expr) )
+
+expr = expr1
+expr1
+	= Choice(expr(expr2) {_ "|" _ expr(expr2)}+) | expr2
+expr2
+	= Join(expr(expr3) {_ expr(expr3)}+) | expr3
+expr3 = value
+
+value
+	= NoEmit("!!" _ expr(value))
+	| NoConsume("&&" _ expr(value))
+	| Not("!" _ expr(value))
+	| And("&" _ expr(value))
+	| EmitSource("%" _ expr(value))
+	| String(string)
+	| "(" _ expr _ ")"
+	| RepeatPlus("{" _ expr(expr) _ "}+")
+	| Repeat("{" _ expr(expr) _ "}")
+	| Optional("[" _ expr(expr) _ "]")
+	| Code("`" {!"`" char(ANY)} "`")
+	| Range(from(char) "-" to(char))
+	| Named(name(identifier) "(" _ expr(expr) _ ")") # must be no space between
+	| Token(name(identifier) !(_ "="))

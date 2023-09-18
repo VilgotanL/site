@@ -21,7 +21,7 @@
             body {
                 flex-grow: 1;
                 display: flex;
-                padding: 1rem;
+                padding: 1.5rem;
                 gap: 1rem;
                 background: linear-gradient(45deg, gray, lightgray);
             }
@@ -30,17 +30,12 @@
                 background: white;
             }
 
-            #gen-section {
-                flex: 1 0;
-                padding: 1rem;
-            }
-
             #doc-section {
                 flex: 1 0;
                 padding-inline: 1rem;
                 overflow-y: auto;
             }
-            #doc-section h1 {
+            #doc-section h1, #gen-section h1 {
                 font-size: 1.9rem;
             }
             #doc-section code {
@@ -48,11 +43,40 @@
                 padding: 0.1rem 0.2rem;
                 background: #f0f0f0;
                 font-family: monospace;
+                white-space: pre-wrap;
+                word-break: break-all;
+            }
+            #doc-section .multiline-code {
+                display: block;
+            }
+
+
+            #gen-section {
+                flex: 1 0;
+                padding: 1rem;
+                display: flex;
+                gap: 1rem;
+                flex-direction: column;
+            }
+            #gen-section > * {
+                margin: 0;
+            }
+            #gen-section textarea {
+                flex: 1 0;
+                resize: none;
+                font-family: monospace;
+                font-size: 0.9rem;
             }
         </style>
 	</head>
     <body>
-        <section id="gen-section">gen section</section>
+        <section id="gen-section">
+            <h1>Generator</h1>
+            <p>Input</p>
+            <textarea id="inp" spellcheck="false"></textarea>
+            <p id="out-p">Output</p>
+            <textarea id="out" spellcheck="false"></textarea>
+        </section>
         <section id="doc-section">
             <h1>About</h1>
             <p>
@@ -62,14 +86,20 @@
             <p>
                 The grammar is comprised of definitions / production rules in the form<br />
                 <code>name = expression</code><br />
-                Names can only include alphanumeric characters (uppercase, lowercase, and digits) and <code>_</code>, and they cannot start with a digit<br />
+                or<br />
+                <code>name : "name for errors" = expression</code><br />
+                Names are identifiers and can only include alphanumeric characters (uppercase, lowercase, and digits) and <code>_</code>, and they cannot start with a digit<br />
+                The optional string after the colon is used in error messages. The characters should be lowercased (or uppercased) as if it were in the middle of a sentence.<br />
                 The starting production rule is by default <code>main</code>, but the generated parser can be called with a specific starting production rule to allow parsing from any production rule.<br />
-                Important: whitespace is not treated differently to any other characters in parser gen 4.<br />
+                Important: whitespace is not treated differently to any other characters in input text, so you have to explicitly accept whitespace between tokens (TODO maybe add a way around this?).<br />
             </p>
             <p>
                 An expression can yield/emit values that will be part of the result of using the generated parser. Expressions can also yield nothing, or discard the yield from a sub-expression.<br />
                 An expression can chooose to not consume the input to the parser, leaving it to be consumed by another expression. The expression can still yield things or not yield anything.<br />
                 The output of the generated parser is an array-like object containing a list of yielded values.<br />
+            </p>
+            <p style="color: #aa0000;">
+                Whitespace in the grammar of parsergen4 is in a few cases significant. <code>a(b)</code> is a named expression but <code>a (b)</code> is a concatenation expression with b in parentheses.
             </p>
             <p>
                 These are the expression types, not ordered in any particular order:
@@ -84,6 +114,11 @@
                     <td>String</td>
                     <td><code>"string here"</code></td>
                     <td>Matches the specified string. Uses js-like escape sequences. Yields nothing.</td>
+                </tr>
+                <tr>
+                    <td>Identifier</td>
+                    <td><code>name</code></td>
+                    <td>Matches the expression of the definition / production rule named. If none exist, it attempts to get a js-implemented one from an optional js function in parser's arguments, which can be used for loads of great stuff.</td>
                 </tr>
                 <tr>
                     <td>Concatenation</td>
@@ -126,7 +161,7 @@
                     <td>Matches if the sub-expression matches, does not consume, and discards it's yield (yields nothing).</td>
                 </tr>
                 <tr>
-                    <td>No yield / Skip</td>
+                    <td>No emit / Skip</td>
                     <td><code>!!expression</code></td>
                     <td>Matches if the sub-expression matches, and consumes, but discards it's yield (yields nothing).</td>
                 </tr>
@@ -143,7 +178,7 @@
                 <tr>
                     <td>Backquote emit</td>
                     <td><code>`text to emit`</code></td>
-                    <td>Yields the specified text, in the output of the generated parser as a javascript string. Allows escape sequences. This can be used to make the generated parser effectively be a compiler, by concatenating the javascript strings emitted by these in the parser's output, but this does lead to messy grammar code.</td>
+                    <td>Yields the specified text, in the output of the generated parser as a javascript string. Does NOT allow escape sequences to allow code with backslashes and such. This can be used to make the generated parser effectively be a compiler, by concatenating the javascript strings emitted by these in the parser's output, but this does lead to messy grammar code.</td>
                 </tr>
                 <tr>
                     <td>Emit matched text</td>
@@ -155,11 +190,6 @@
                     <td><code>name(expression)</code></td>
                     <td>Matches the sub-expression. Wraps the yield, a list of values, in a named value. Named values are explained later.</td>
                 </tr>
-                <tr>
-                    <td>Error</td>
-                    <td><code>Error(expression)</code></td>
-                    <td>TODO figure out how this should work</td>
-                </tr>
             </table>
             <p>
                 Comments start with <code>#</code>.
@@ -168,48 +198,45 @@
             <p>
                 A named value is a grouped yield (list of values) with a name. In the parser's output it is an array-like object with the list of values.<br />
                 If you access a property on the named value, it returns all the named-values inside it with that name with concatenated together into one such named value, of course with yields concatenated.<br />
-                Named values in the output also have a .emitted property to get the emitted js strings joined together, and a .text property in case you want the consumed input text of the named value<br />
+                Named values in the output also have a .emitted property to get the emitted js strings joined together, and a .text property in case you want the consumed input text of the named value.<br />
                 The return value of the generated parser functions the same as a named value.<br />
             </p>
             <p>
                 An relatively simple example:<br />
                 Grammar:<br />
-                <code>
-                    whitespace = { " " | "\t" | "\r" | "\n" } # Optional whitespace<br />
-                    _ = whitespace # An alias for whitespace that I like to use<br />
-                    integer = ["-" `-`] {%0-9}+ # Here we emit the digits as javascript strings by using %, you can also use backquote strings as showed for the - sign.<br />
-                    identifier = !0-9 {( A-Z | a-z | 0-9 | "_" )}+ # Here I show that you can do it a different and easier way, just use the .text property instead in javascript, and you dont have to emit stuff in grammar<br />
-                    <br />
-                    main = _ "{" _ Assignments({ assignment _ }) _ "}" _<br />
-                    assignment = Assignment( Key(identifier) _ "=" _ Value(expression) )<br />
-                    <br />
-                    expression<br />
-                        = Identifier(identifier)<br />
-                        | Integer(integer)<br />
-                </code><br />
-                I have made the named values start with an uppercase letter to make it easier to read, but they can even have the same name as production rules.<br />
+                <code class="multiline-code">whitespace = { " " | "\t" | "\r" | "\n" } # Optional whitespace
+_ = whitespace # An alias for whitespace that I like to use
+integer = ["-" `-`] {%0-9}+ # Here we emit the digits as javascript strings by using %, you can also use backquote strings as showed for the - sign.
+identifier = !0-9 {( A-Z | a-z | 0-9 | "_" )}+ # Here I show that you can do it a different and easier way, just use the .text property instead in javascript, and you dont have to emit stuff in grammar
+                    
+main = _ "{" _ Assignments({ assignment _ }) _ "}" _
+assignment = Assignment( Key(identifier) _ "=" _ Value(expression) )
+                    
+expression
+    = Identifier(identifier)
+    | Integer(integer)</code>
+                The named values start with an uppercase letter to avoid name collisions with properties of the js named value object and to make it easier to read, but they can even have the same name as production rules.<br />
                 Test input:<br />
-                <code>
-                    {
-                    my_thing = hello<br />
-                    a = b c = d}
-                </code><br />
-                JavaScript usage after generating the parser:<br />
-                <code>
-                    const input_text = `<br />
-                    {<br />
-                    my_thing = hello<br />
-                    a = b c = d}<br />
-                    `;<br />
-                    const ast = parse(input_text);<br />
-                    for(let assignment of ast.Assignments) {<br />
-                        if(assignment.Value.Integer) console.log(assignment.Key.emitted, "=", assignment.Value.Integer.emitted); // Here i use .emitted<br />
-                        else if(assignment.Value.Identifier) console.log(assignment.Key.emitted, "=", assignment.Value.Identifier.text); // Here i use .text instead to show the difference, it is easier because you don't need to emit/yield strings in the grammar<br />
-                        else throw new Error("Should not happen");<br />
-                    }
-                </code>
+                <code class="multiline-code">{
+my_thing = hello
+a = b c = d}</code>
+                JavaScript example usage after generating the parser:<br />
+                <code class="multiline-code">const input_text = `
+{
+my_thing = hello
+a = b c = d}
+`;
+const ast = parse(input_text);
+for(let assignment of ast.Assignments) {
+    if(assignment.Value.Integer) console.log(assignment.Key.emitted, "=", assignment.Value.Integer.emitted); // Here i use .emitted
+    else if(assignment.Value.Identifier) console.log(assignment.Key.emitted, "=", assignment.Value.Identifier.text); // Here i use .text instead to show the difference, it is easier because you don't need to emit/yield strings in the grammar
+    else throw new Error("Should not happen");
+}</code>
             </p>
             <p>TODO: show example of idend needed, show example of simple compiler (bf to c?)</p>
         </section>
+
+        <script src="generator.js"></script>
+        <script src="main.js"></script>
     </body>
 </html>
