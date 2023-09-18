@@ -228,8 +228,8 @@ a = b c = d}
 `;
 const ast = parse(input_text);
 for(let assignment of ast.Assignments) {
-    if(assignment.Value.Integer) console.log(assignment.Key.emitted, "=", assignment.Value.Integer.emitted); // Here i use .emitted
-    else if(assignment.Value.Identifier) console.log(assignment.Key.emitted, "=", assignment.Value.Identifier.text); // Here i use .text instead to show the difference, it is easier because you don't need to emit/yield strings in the grammar
+    if(assignment.Value.Integer) console.log(assignment.Key.text, "=", assignment.Value.Integer.emitted); // Here i use .emitted
+    else if(assignment.Value.Identifier) console.log(assignment.Key.text, "=", assignment.Value.Identifier.text); // Here i use .text instead to show the difference, it is easier because you don't need to emit/yield strings in the grammar
     else throw new Error("Should not happen");
 }</code>
             </p>
