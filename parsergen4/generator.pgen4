@@ -1,12 +1,12 @@
 # Parser Generator V4 compiler written inside itself
 
 _ = {" " | "\t" | "\n" | comment} # whitespace
-comment = "#" {!"\n" \x00-\xFF} ["\n"]
+comment : "comment" = "#" {!"\n" \x00-\xFF} ["\n"]
 
 EMIT_ANY = !'"' !"'" !"\\" %\x20-\x7e | "\n" `\n` | `\` %\x00-\xFF
 HEX = 0-9 | a-f | A-F
-identifier = (a-z | A-Z | "_") {a-z | A-Z | 0-9 | "_"}
-string = `"` (('"' {!'"' !"\n" char} '"') | ("'" {!"'" !"\n" char} "'")) `"`
+identifier : "identifier" = (a-z | A-Z | "_") {a-z | A-Z | 0-9 | "_"}
+string : "string" = `"` (('"' {!'"' !"\n" char} '"') | ("'" {!"'" !"\n" char} "'")) `"`
 char = escape | !"\\" EMIT_ANY
 escape = "\\" escape_combos | "\\" ("x" | "X") `\x` %HEX %HEX # TODO add unicode & stuff later
 escape_combos = "n" `\n` | "t" `\t` | "r" `\r` | '"' `\"` | "'" `\'` | "\\" `\\` # TODO add more combos later
@@ -14,10 +14,10 @@ escape_combos = "n" `\n` | "t" `\t` | "r" `\r` | '"' `\"` | "'" `\'` | "\\" `\\`
 
 
 main = PREPEND_CODE ( _ { statement _} ) APPEND_CODE
-statement = `	define("` %identifier `", ` (_ ":" _ string `, ` | `null, `) _ "=" _ expr `);
+statement : "definition" = `	define("` %identifier `", ` (_ ":" _ string `, ` | `null, `) _ "=" _ expr `);
 `
 
-expr = expr1
+expr : "expression" = expr1
 expr1
 	= `exprs.choice(` expr2 {_ "|" _ `, ` expr2}+ `)` | expr2
 expr2
