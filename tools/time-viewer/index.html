@@ -1,0 +1,123 @@
+<!DOCTYPE html> <!-- by VilgotanL -->
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Time</title>
+
+        <style>
+            * {
+                box-sizing: border-box;
+                font-family: Calibri;
+            }
+
+            body {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding-top: 15vh;
+            }
+
+            h1 {
+                font-size: 4rem;
+                margin: 0;
+                margin-bottom: 1rem;
+            }
+            #timeh1 {
+                font-size: 6rem;
+            }
+            p {
+                font-size: 2rem;
+                margin: 0.5rem;
+            }
+        </style>
+	</head>
+    <body>
+        <h1 id="timeh1">Time</h1>
+        <h1 id="dateh1">Date</h1>
+        <p id="datep">Date</p>
+        <p id="week">Week &amp; Day</p>
+        <p id="utc">UTC Time</p>
+        <p id="unixtime"></p>
+
+        <script>
+            const timeH1 = document.querySelector("#timeh1");
+            const dateH1 = document.querySelector("#dateh1");
+            const dateP = document.querySelector("#datep");
+            const weekP = document.querySelector("#week");
+            const utcP = document.querySelector("#utc");
+            const unixTimestampP = document.querySelector("#unixtime");
+
+
+            function formatNumber(str) {
+                let [iPart, fPart] = str.split(".");
+                if(!fPart) fPart = null;
+                
+                let newStr = "";
+                for(let i=iPart.length; i>=0; i-=3) {
+                    let part = iPart.slice(Math.max(i-3, 0), i);
+                    newStr = part + (part && newStr ? " " : "") + newStr;
+                }
+                if(fPart) {
+                    newStr += ".";
+                    for(let i=0; i<fPart.length; i+=3) {
+                        let part = fPart.slice(i, i+3);
+                        newStr = newStr + (!newStr.endsWith(".") ? " " : "") + part;
+                    }
+                }
+                return newStr;
+            }
+            function zeropad(str, n) {
+                return (str).toString().padStart(n, "0");
+            }
+            function formatNth(num) {
+                num = num.toString();
+                if(num.endsWith("1") && num !== "11") return `${num}st`;
+                if(num.endsWith("2") && num !== "12") return `${num}nd`;
+                if(num.endsWith("3") && num !== "13") return `${num}rd`;
+                return `${num}th`;
+            }
+
+
+            const months = [
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December",
+            ];
+            const daysOfWeek = [
+                "Sunday",
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+            ];
+
+
+            function update() {
+                const d = new Date();
+
+                timeH1.innerText = `${zeropad(d.getHours(), 2)}:${zeropad(d.getMinutes(), 2)}:${zeropad(d.getSeconds(), 2)}`;
+                dateH1.innerText = `${zeropad(d.getFullYear(), 2)}-${zeropad(d.getMonth()+1, 2)}-${zeropad(d.getDate(), 2)}`;
+                dateP.innerText = `${formatNth(d.getDate())} of ${months[d.getMonth()]}`;
+                weekP.innerText = `${daysOfWeek[d.getDay()]}`;
+                utcP.innerText = `UTC: ${zeropad(d.getUTCFullYear(), 2)}-${zeropad(d.getUTCMonth()+1, 2)}-${zeropad(d.getUTCDate(), 2)} ${zeropad(d.getUTCHours(), 2)}:${zeropad(d.getUTCMinutes(), 2)}:${zeropad(d.getUTCSeconds(), 2)}`;
+                unixTimestampP.innerText = "Unix timestamp: " + formatNumber((Date.now()/1000).toFixed(3));
+
+                requestAnimationFrame(update);
+            }
+
+            requestAnimationFrame(update);
+        </script>
+    </body>
+</html>

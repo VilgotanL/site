@@ -1,0 +1,16 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  color: white;
+  font-family: Arial, Helvetica;
+  font-size: 15px;
+  background-color: rgb(50, 50, 50);
+}
+canvas {
+  margin: 5px;
+  display: block;
+}
+input, p, button{
+  margin: 5px 5px;
+  display: inline-block;
+}

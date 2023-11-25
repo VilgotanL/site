@@ -1,0 +1,116 @@
+<!DOCTYPE html> <!-- by VilgotanL -->
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Sorts</title>
+
+        <style>
+            html, body, canvas {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                display: block;
+            }
+        </style>
+	</head>
+    <body>
+        <canvas></canvas>
+        <script>
+            let canvas = document.querySelector("canvas");
+            let width = window.innerWidth;
+            let height = window.innerHeight;
+            canvas.width = width, canvas.height = height;
+
+            let ctx = canvas.getContext("2d");
+
+            let array = Array(width).fill(0);
+
+            function swap(i1, i2) {
+                [array[i1], array[i2]] = [array[i2], array[i1]];
+            }
+            function randInt(length) {
+                return Math.floor(Math.random()*length);
+            }
+            function initialize() {
+                array = Array(width).fill(0).map((_, i) => Math.ceil(((i+1)/width)*height));
+            }
+            initialize();
+            function shuffleArray(arr) {
+                for(let i=0; i<arr.length; i++) {
+                    let randI = randInt(arr.length);
+                    [arr[i], arr[randI]] = [arr[randI], arr[i]];
+                }
+                return arr;
+            }
+
+
+            const sorts = {
+                "Bubble sort": function() {
+                    let i = 0;
+                    let nSorted = 0;
+                    return function() {
+                        for(let j=0; j<250; j++) {
+                            if(i+1 >= array.length-nSorted) {
+                                i = 0;
+                                nSorted++;
+                            }
+                            if(nSorted === array.length) return true;
+                            if(array[i] > array[i+1]) swap(i, i+1);
+                            i++;
+                        }
+                    };
+                },
+                "Insertion sort": function() {
+                    let nSorted = 1;
+                    let indexOfUnsorted = 1;
+                    return function() {
+                        for(let j=0; j<150; j++) {
+                            if(nSorted === array.length) return true;
+                            if(indexOfUnsorted === 0 || array[indexOfUnsorted-1] < array[indexOfUnsorted]) {
+                                nSorted++;
+                                indexOfUnsorted = nSorted;
+                            } else {
+                                swap(indexOfUnsorted-1, indexOfUnsorted);
+                                indexOfUnsorted--;
+                            }
+                        }
+                    };
+                },
+            };
+
+
+            let nextSorts = [];
+            let shuffleAnim = -1;
+            function draw() {
+                if(shuffleAnim !== null && shuffleAnim >= array.length-1) {
+                    shuffleAnim = null;
+                }
+                if(shuffleAnim !== null) {
+                    shuffleAnim++;
+                    swap(shuffleAnim, randInt(array.length));
+                } else {
+                    if(nextSorts.length === 0) {
+                        nextSorts = shuffleArray(Object.keys(sorts)).map(name => [name, sorts[name]()]);
+                    }
+                    let sortDone = nextSorts[0][1]();
+                    if(sortDone) {
+                        nextSorts.shift();
+                        shuffleAnim = -1;
+                    }
+                }
+
+                ctx.fillStyle = "black";
+                ctx.fillRect(0, 0, width, height);
+                ctx.fillStyle = "white";
+                for(let i=0; i<array.length; i++) {
+                    ctx.fillRect(i, height-array[i], 1, array[i]);
+                }
+
+                requestAnimationFrame(draw);
+            }
+            draw();
+        </script>
+    </body>
+</html>

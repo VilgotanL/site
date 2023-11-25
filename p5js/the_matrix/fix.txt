@@ -1,0 +1,1 @@
+2023-11-25 changed textarea width to 200% to hide scrollbar

@@ -1,0 +1,116 @@
+<!DOCTYPE html> <!-- by VilgotanL -->
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Ascii Table</title>
+
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/firacode@6.2.0/distr/fira_code.css">
+        <style>
+            * {
+                box-sizing: border-box;
+                font-family: "Segoe UI";
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                background: white;
+                display: flex;
+                flex-direction: column;
+                padding: 2% 15%;
+                gap: 1.4rem;
+            }
+            .dark-theme {
+                filter: invert(1) hue-rotate(180deg); /* invert(1) inverts all colors, and hue-rotate cycles colors (hues) back to same as white theme */
+            }
+
+            header {
+                display: flex;
+                gap: 1.4rem;
+                align-items: baseline; /* make text align good bottom */
+            }
+            header a, header p {
+                font-size: 1.4rem;
+            }
+            button {
+                font-size: 1.8rem;
+                align-self: start;
+                padding: 0 0.2rem;
+            }
+
+            code {
+                display: block;
+                border: 2px inset;
+                padding: 1.5rem 1rem;
+            }
+            code, code span {
+                font-size: 1.5rem;
+                font-family: "Consolas", monospace;
+                font-weight: 500;
+            }
+            code span {
+                white-space: pre;
+                color: black;
+            }
+            .prop {
+                color: #0000cc;
+            }
+            .op {
+                color: #555555;
+            }
+            .link1 {
+                color: #0055ff;
+            }
+            textarea {
+                font-family: monospace;
+                font-size: 18px;
+            }
+            main, main section, main section textarea {
+                width: 100%;
+            }
+            textarea {
+                height: 4rem;
+            }
+        </style>
+	</head>
+    <body>
+        <h1>Easy CSS Dark Theme</h1>
+        <noscript><h1>please enable javascript</h1></noscript>
+        <p>Simple way to make CSS dark theme.</p>
+        <p>Literally just a single css property:</p>
+        
+        <code>
+            <span class="prop">filter</span><span class="op">: </span>invert<span class="op">(</span>1<span class="op">)</span> hue-rotate<span class="op">(</span>180deg<span class="op">);</span>
+        </code>
+
+        <hr />
+        <button id="theme">Toggle Theme</button>
+        <header>
+            <a class="link1" href="https://esolangs.org/">Link 1234</a>
+        </header>
+            <a href="https://esolangs.org/">abcdefghijkl mnopqrstuv wxyz</a>
+        <section>
+            Lorem ipsum dolor sit amet.
+        </section>
+        <textarea>"hello"; let x = 3054..toString(16); console.log(x);</textarea>
+        <script>
+            const textarea = document.querySelector("textarea");
+            (_=>_(_))(self=>{
+                const size = 20 + 10*Math.sin((Date.now() / 1000) % (Math.PI*2));
+                textarea.style.fontSize = size+"px";
+
+                requestAnimationFrame(_=>self(self));
+            }); // pretty cool thing you can do with arrow functions for requestAnimationFrame functions
+        </script>
+        <p>Consolas is great, Segoe UI is cool too</p>
+
+
+        <script>
+            const themeBtn = document.querySelector("button#theme");
+
+            themeBtn.addEventListener("click", () => {
+                document.documentElement.classList.toggle("dark-theme");
+            });
+        </script>
+    </body>
+</html>

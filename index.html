@@ -1,23 +1,166 @@
-<!DOCTYPE html>
+<!DOCTYPE html> <!-- by VilgotanL -->
 <html>
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Index</title>
+        <title>VilgotanL's Home Page</title>
 
         <style>
+            * {
+                box-sizing: border-box;
+            }
+            html {
+                width: 100%;
+                height: 100%;
+            }
+            body {
+                background: #dddddd;
+                margin: 0;
+                padding: 0;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+            }
+
+            nav {
+                margin: 0;
+                padding-block: 0.3rem;
+                box-sizing: border-box;
+                position: relative;
+                background: #44ff44;
+                display: flex;
+                justify-content: space-evenly;
+                flex-wrap: wrap;
+            }
+            nav * {
+                font-size: 1.4rem;
+            }
+            nav > details > summary {
+                font-size: 1.5rem;
+            }
+            nav summary {
+                cursor: pointer;
+                user-select: none;
+            }
+            nav details {
+                position: relative;
+            }
+            nav > details > div {
+                position: absolute;
+                background: #66ff66;
+                padding: 0.2rem;
+                /*width: max-content;*/
+                width: max-content;
+                z-index: 1;
+            }
+            nav > details details > div {
+                position: absolute;
+                left: calc(100% + 4px);
+                top: 0;
+                width: max-content;
+                background: #66ff66;
+                padding: 0.2rem;
+            }
+            nav details > div {
+                border: 4px outset;
+                display: flex;
+                flex-direction: column;
+            }
+            nav > details details > summary {
+                padding-block: 0.1rem;
+            }
+
+            main {
+                margin: 0;
+                padding: 0 1rem;
+                flex-grow: 1;
+            }
+            footer {
+                margin: 0;
+                padding: 0 0.2rem;
+                background: #44ff44;
+                font-size: 1rem;
+            }
         </style>
 	</head>
     <body>
-        <h1>Index</h1>
-        <p>Index</p>
+        <nav>
+            <details>
+                <summary>Home</summary>
+                <div>
+                    <a href="index.html">Main Page</a>
+                </div>
+            </details>
+            <details>
+                <summary>Tools</summary>
+                <div>
+                    <details>
+                        <summary>File</summary>
+                        <div>
+                            <a href="tools/file-text-viewer/index.html">View file as text</a>
+                        </div>
+                    </details>
+                    <details>
+                        <summary>Tables</summary>
+                        <div>
+                            <a href="tools/ascii-table/index.html">Ascii Table</a>
+                        </div>
+                    </details>
+                    <a href="tools/time-viewer/index.html">Current Time</a>
+                    <a href="tools/roblox-fav-games-viewer/index.html">Roblox Favorite Games Viewer</a>
+                </div>
+            </details>
+            <details>
+                <summary>Experiments &amp; Projects</summary>
+                <div>
+                    <details>
+                        <summary>Using p5.js</summary>
+                        <div>
+                            <a href="p5js/3d_platformer_1/index.html">3D Platformer</a>
+                            <a href="p5js/the_matrix/index.html">The Matrix</a>
+                            <a href="p5js/tetris_1/index.html">Tetris v1</a>
+                            <a href="p5js/a_platformer/index.html">A Platformer</a>
+                            <a href="p5js/3d_rendering_engine_test1/index.html">3D Rendering Engine testv1</a>
+                            <a href="p5js/3d_rendering_engine_test2/index.html">3D Rendering Engine testv2</a>
+                            <a href="p5js/chaos_game_serpinski_more/index.html">Chaos Game Serpinski</a>
+                            <a href="p5js/early_platformer/index.html">Early Platformer</a>
+                            <a href="p5js/first_p5_project/index.html">First p5.js Project</a>
+                        </div>
+                    </details>
+                    <details>
+                        <summary>Visualizations</summary>
+                        <div>
+                            <a href="projects/sorts-visual/index.html">WIP Sorts</a>
+                        </div>
+                    </details>
+                    <a href="projects/pichudnovsky/index.html">Chudnovsky Pi Calc</a>
+                </div>
+            </details>
+            <details>
+                <summary>Articles</summary>
+                <div>
+                    <a href="articles/cssdarktheme.html">Easy CSS Dark Theme</a>
+                    <a href="projects/top_infinity_numbers/index.html">Top Infinity Numbers</a>
+                </div>
+            </details>
+        </nav>
+        <main>
+            <h1>Home</h1>
 
-        <ul>
-            <li><a href="robloxfavgamesviewer/index.html">Roblox Favorite Games Viewer</a></li>
-            <li><a href="sorts-visual/index.html">WIP Sorts</a></li>
-            <li><a href="ios-camera-maze-solver/index.html">IOS Camera Maze Solver</a></li>
-            <li><a href="wos-wiki/index.html">WIP WoS Wiki</a></li>
-            <li><a href="parsergen4/index.html">WIP PARSER GEN 4!</a></li>
-        </ul>
+            <p>A lot of stuff is unfinished / work in progress / work planned</p>
+            <p>List of unlisted projects except within this list</p>
+            <ul>
+                <li><a href="projects/ios-camera-maze-solver/index.html">IOS Camera Maze Solver</a></li>
+                <li><a href="projects/gifmaker/index.html">WIP GifMaker</a></li>
+                <li><a href="projects/parsergen4/index.html">WIP PARSER GEN 4!</a></li>
+                <li><a href="projects/mathcomplicator/index.html">WIP (currently broken) Math complicator 1000</a></li>
+            </ul>
+        </main>
+        <footer>
+            - VilgotanL
+        </footer>
+        <script>
+            if(location.hostname !== "vilgotanl.github.io" && location.protocol !== "file:") location.replace("https://vilgotanl.github.io/site/");
+        </script>
     </body>
 </html>

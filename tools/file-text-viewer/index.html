@@ -1,0 +1,93 @@
+<!DOCTYPE html> <!-- by VilgotanL -->
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>File as Text</title>
+
+        <style>
+            * {
+                box-sizing: border-box;
+                font-family: Georgia;
+                word-break: break-all;
+            }
+            html, body {
+                margin: 0;
+                padding: 0;
+            }
+            html {
+                height: 100%;
+            }
+            body {
+                min-height: 100%;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                background: lightgray;
+            }
+            main {
+                flex-grow: 1;
+                background: white;
+                width: 50%;
+                padding: 1rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.8rem;
+            }
+            main > * {
+                margin: 0;
+                padding: 0;
+            }
+            #file {
+                font-size: 1.2rem;
+                text-align: left;
+                padding: 0.2rem;
+            }
+            #output {
+                flex-grow: 1;
+                resize: none;
+                font-family: monospace;
+                overflow: scroll;
+                white-space: pre;
+            }
+            #file-info {
+                font-family: monospace;
+                font-size: 1.1rem;
+            }
+        </style>
+	</head>
+    <body>
+        <main>
+            <h1>View Text in File</h1>
+            <input id="file" type="file" />
+            <blockquote id="file-info">
+                Waiting for JavaScript
+            </blockquote>
+            <textarea id="output" spellcheck="false"></textarea>
+        </main>
+
+        <script defer>
+            let fileInput = document.querySelector("#file");
+            let infoOutput = document.querySelector("#file-info");
+            let output = document.querySelector("#output");
+
+            infoOutput.innerText = "Waiting for file";
+            output.value = "Waiting for file";
+
+            fileInput.addEventListener("change", function() {
+                const files = fileInput.files;
+                if(files.length !== 1) {
+                    alert("User must select 1 file");
+                    return;
+                }
+                const file = files[0];
+
+                infoOutput.innerText = `Name: ${file.name}\nMIME Type: ${file.type || "Unknown"}\nSize (Bytes): ${file.size}\nLast modified: ${new Date(file.lastModified).toString()}`;
+
+                output.value = "Reading file...";
+                file.text().then(text => { output.value = text; }, err => { output.value = "Failed: "+err; });
+            });
+        </script>
+    </body>
+</html>

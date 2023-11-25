@@ -1,0 +1,186 @@
+<!DOCTYPE html> <!-- by VilgotanL -->
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Gifmaker</title>
+
+        <style>
+            html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                display: flex;
+                justify-content: center;
+                background: gray;
+            }
+            main {
+                width: 70vh;
+                display: flex;
+                flex-direction: column;
+                padding: 1rem;
+                gap: 1rem;
+                background: white;
+            }
+
+            input[type=text], button {
+                font-size: 1.2rem;
+            }
+            input[type=file] {
+                font-size: 1.4rem;
+                background: lightgray;
+            }
+
+            #canvas-div {
+                height: 70vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            canvas {
+                background: lightgray;
+            }
+        </style>
+	</head>
+    <body>
+        <main>
+            <input type="text" value="💀😳"/>
+            <input type="file" accept=".gif"/>
+            <button id="render-btn">Render</button>
+            <div id="canvas-div">
+                <canvas></canvas>
+            </div>
+            <button id="download-btn" disabled>Download</button>
+        </main>
+        <script src="omggif.js"></script>
+        <script>
+            const textInput = document.querySelector("input[type=text]");
+            const fileInput = document.querySelector("input[type=file");
+            const renderBtn = document.querySelector("#render-btn");
+            const canvas = document.querySelector("canvas");
+            const canvasDiv = document.querySelector("#canvas-div");
+            const ctx = canvas.getContext("2d");
+            const downloadBtn = document.querySelector("#download-btn");
+
+
+            function updateCanvasSize(width, height) {
+                const aspectRatio = width/height;
+                const visHeight = Math.min(canvasDiv.clientHeight, canvasDiv.clientWidth/aspectRatio);
+                canvas.width = Math.floor(visHeight*aspectRatio);
+                canvas.height = Math.floor(visHeight);
+                canvas.style.width = Math.floor(visHeight*aspectRatio);
+                canvas.style.height = Math.floor(visHeight);
+            }
+            function updateToError(text) {
+                downloadBtn.disabled = true;
+                updateCanvasSize(800, 600);
+                ctx.fillStyle = "black";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "white";
+                ctx.font = "normal 28px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText(`${text}`, canvas.width/2, canvas.height/2, canvas.width*0.9);
+            }
+
+            const TEXT_PART = 0.12; // Height part of result image that text should take up
+
+            async function updateGif() {
+                downloadBtn.disabled = true;
+
+                const file = fileInput.files[0];
+                if(!file) throw new Error("No file");
+                if(file.type !== "image/gif") throw new Error("File must be .gif");
+                const fileBuffer = await file.arrayBuffer().then(arrayBuf => new Uint8Array(arrayBuf));
+                const gifReader = new GifReader(fileBuffer);
+                updateCanvasSize(gifReader.frameInfo(0).width, gifReader.frameInfo(0).height*(1/(1-TEXT_PART)));
+                const decodedFrames = Array(await gifReader.numFrames()).fill(0).map((_, frameI) => {
+                    const pixels = new Uint8ClampedArray(4*gifReader.frameInfo(frameI).width*gifReader.frameInfo(frameI).height);
+                    gifReader.decodeAndBlitFrameRGBA(frameI, pixels);
+                    return pixels;
+                });
+                const bitmapImageFrames = await Promise.all(decodedFrames.map((pixels, frameI) => {
+                    return window.createImageBitmap(new ImageData(pixels, gifReader.frameInfo(frameI).width));
+                }));
+                window.decodedFrames = decodedFrames;
+
+
+                const width = canvas.width;
+                const height = canvas.height;
+                const gifWriter = new GifWriter([], width, height, {
+                    loop: gifReader.loopCount(),
+                });
+                await new Promise(res => requestAnimationFrame(res));
+                const palette = Array(256);
+                for(let i=0; i<256; i++) {
+                    const r = Math.floor(((i & 0b00000111)) / 7 * 255);
+                    const g = Math.floor(((i & 0b00111000) >> 3) / 7 * 255);
+                    const b = Math.floor(((i & 0b11000000) >> 6) / 3 * 255);
+                    palette[i] = (r << 16) + (g << 8) + b;
+                }
+                ctx.fillStyle = "black";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.textBaseline = "middle";
+                ctx.textAlign = "center";
+                let nextFontSize = Math.floor(height*TEXT_PART*0.8);
+                console.log(nextFontSize);
+                ctx.font = `normal ${nextFontSize}px Impact`;
+                nextFontSize--;
+                while(nextFontSize > 0 && ctx.measureText(textInput.value).width > width*0.96) {
+                    ctx.font = `normal ${nextFontSize}px Impact`;
+                    nextFontSize--;
+                }
+
+                for(let frameI=0; frameI<gifReader.numFrames(); frameI++) {
+                    ctx.drawImage(bitmapImageFrames[frameI], 0, height*TEXT_PART, width, height*(1-TEXT_PART));
+                    ctx.fillStyle = "white";
+                    ctx.fillRect(0, 0, width, height*TEXT_PART);
+                    ctx.fillStyle = "black";
+                    ctx.fillText(textInput.value, width/2, height*TEXT_PART/2);
+                    let indexed_pixels = Array(width*height).fill(0);
+                    const imgData = ctx.getImageData(0, 0, width, height).data;
+                    for(let x=0; x<width; x++) {
+                        for(let y=0; y<height; y++) {
+                            let r = imgData[4*(y*width+x)];
+                            let g = imgData[4*(y*width+x)+1];
+                            let b = imgData[4*(y*width+x)+2];
+                            indexed_pixels[y*width+x] = (Math.round(r/255*7) & 0b00000111) + ((Math.round(g/255*7) << 3) & 0b00111000) + ((Math.round(b/255*3) << 6) & 0b11000000);
+                        }
+                    }
+                    gifWriter.addFrame(0, 0, width, height, indexed_pixels, {
+                        delay: gifReader.frameInfo(frameI).delay,
+                        palette,
+                    });
+                    await new Promise(res => requestAnimationFrame(res));
+                }
+                console.log(palette);
+                gifWriter.end();
+                const blob = new Blob([new Uint8Array(gifWriter.getOutputBuffer())], { type: "image/gif" });
+
+                downloadBtn.onclick = async function() {
+                    let a = document.createElement("a");
+                    const url = URL.createObjectURL(blob);
+                    a.href = url;
+                    a.download = "gif.gif";
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+                downloadBtn.disabled = false;
+            }
+
+            async function tryUpdateGif() {
+                try {
+                    await updateGif();
+                } catch(e) {
+                    updateToError(e.message);
+                }
+            }
+
+
+            renderBtn.addEventListener("click", tryUpdateGif);
+        </script>
+    </body>
+</html>

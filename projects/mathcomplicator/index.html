@@ -1,0 +1,129 @@
+<!DOCTYPE html> <!-- by VilgotanL -->
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Math Complicator</title>
+
+        <!-- https://latex.js.org/usage.html#library -->
+        <script src="https://cdn.jsdelivr.net/npm/latex.js/dist/latex.js"></script>
+
+        <style>
+            :root {
+                --size: 2rem !important; /* for latex.js */
+            }
+            html {
+                font-family: 'Times New Roman' !important;
+            }
+            html, body {
+                margin: 0;
+                padding: 0;
+                height: 100%;
+            }
+            body {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+        </style>
+	</head>
+    <body>
+        <script>
+            let expr = { type: "pi" };
+
+
+            const PREC = {
+                PARENS: 1,
+                ADD: 2,
+                SUMMATION: 2.5,
+                MUL: 3,
+                ATOMIC: 4,
+            };
+            function genLatex(expr, parentPrec = PREC.PARENS) {
+                // When to add parentheses
+                if(["add"].includes(expr.type) && parentPrec > PREC.ADD) return "(" + genLatex(expr, PREC.PARENS) + ")";
+                if(["summation"].includes(expr.type) && parentPrec > PREC.SUMMATION) return "(" + genLatex(expr, PREC.PARENS) + ")";
+
+                // Expressions
+                if(expr.type === "pi") return "\u03c0";
+                if(expr.type === "add") return `${genLatex(expr.left)} + ${genLatex(expr.right)}`;
+                if(expr.type === "summation") return `\u2211\\underset{${genLatex(expr.lower)}}\\overset{${genLatex(expr.upper)}}${genLatex(expr.expr)}`;
+                if(expr.type === "raw") return `${expr.raw}`;
+                if(expr.type === "inf") return `\u221e`;
+
+                // UnImplemented
+                throw new Error("UnImplemented " + expr.type + " for getLatex");
+            }
+            function randomExpr(filterFunc) {
+                if(!filterFunc) filterFunc = (_) => true;
+                function getDescendants(expr) {
+                    return Object.keys(expr).filter(key => expr[key] instanceof Object && expr[key].type).map(key => [expr[key], ...getDescendants(expr[key])]).flat();
+                }
+                let descendants = [expr, ...getDescendants(expr)];
+                for(let i=0; i<descendants.length; i++) { // shuffle
+                    let randIndex = Math.floor(Math.random()*descendants.length);
+                    [descendants[i], descendants[randIndex]] = [descendants[randIndex], descendants[i]];
+                }
+                for(let d of descendants) {
+                    if(filterFunc(d)) return d;
+                }
+                return null;
+            }
+
+            function replace(expr1, expr2) {
+                for(let key in expr1) delete expr1[key];
+                for(let key in expr2) expr1[key] = expr2[key];
+            }
+
+            const expansions = [
+                () => {
+                    let e = randomExpr(e => e.type === "pi");
+                    if(e) {
+                        replace(e, { type: "summation", lower: { type: "raw", raw: "n=0" }, upper: { type: "inf" }, expr: { type: "raw", raw: "x" } });
+                        return true;
+                    }
+                },
+            ];
+
+
+            function randomExpand() {
+                let array = expansions.slice();
+                for(let i=0; i<array.length; i++) { // shuffle
+                    let randIndex = Math.floor(Math.random()*array.length);
+                    [array[i], array[randIndex]] = [array[randIndex], array[i]];
+                }
+                for(let expansion of array) { // find doable expansion
+                    if(expansion()) {
+                        return;
+                    }
+                }
+                console.log("No doable expansions found");
+            }
+
+
+            document.addEventListener("click", function() {
+                randomExpand();
+                updateHtml();
+            });
+
+
+
+            let appendedChildren = null;
+            function updateHtml(firstTime = false) {
+                if(appendedChildren) {
+                    for(let child of appendedChildren) {
+                        child.remove();
+                    }
+                }
+                const latex = "\\usepackage{amsmath}\n" + genLatex(expr);
+                console.log(latex);
+                const generator = latexjs.parse(latex, { generator: new latexjs.HtmlGenerator({ hyphenate: false }) });
+                appendedChildren = [...generator.domFragment().children];
+                document.body.append(...appendedChildren);
+                if(firstTime) document.head.appendChild(generator.stylesAndScripts("https://cdn.jsdelivr.net/npm/latex.js@0.12.4/dist/")); // horrific hack using if statement
+            }
+            console.log("latex.js in browser sucks me sad :(");
+            updateHtml(true);
+        </script>
+    </body>
+</html>

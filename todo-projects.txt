@@ -1,0 +1,13 @@
+- Game of Life fullscreen using WASM, also langton's ant
+- Ball physics
+- add old games:
+	- ancient scoobis
+	- unity games?
+- mandelbrot set viewer using WASM?
+- add first 3d renderer test
+- add/remake? bouncing dvd screensaver
+- classic games? (pong,tetris,snake)
+- finish old stuff
+- rule 110 and other cellular automata
+- gravitational acceleration
+- high-precision and huge integer calculator
