@@ -84,14 +84,20 @@
                 user-select: none;
             }
 
-            #theme-btn {
+            #theme-btn, #bg-btn {
                 position: absolute;
-                top: 0;
-                right: 0;
                 z-index: 1;
                 background: transparent;
                 border: none;
                 cursor: pointer;
+            }
+            #theme-btn {
+                top: 0;
+                right: 0;
+            }
+            #bg-btn {
+                bottom: 0;
+                right: 0;
             }
             #bg-canvas {
                 position: absolute;
@@ -103,6 +109,7 @@
 	</head>
     <body>
         <button id="theme-btn">Dark mode</button>
+        <button id="bg-btn">Game of Life</button>
         <canvas id="bg-canvas"></canvas>
         <nav>
             <details>
@@ -191,104 +198,7 @@
             document.body.addEventListener("contextmenu", (e) => {
                 e.preventDefault();
             });
-
-
-            {
-                const canvas = document.querySelector("#bg-canvas");
-                canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight;
-                const ctx = document.querySelector("#bg-canvas").getContext("2d");
-                let cellsize = 4;
-                let cells = [];
-                let xpos = 0, ypos = 0;
-
-                function update() {
-
-                    let toCheck = new Set();
-                    let activeSet = new Set();
-                    let widthRadius = 0; // max abs x + 2 (+1 since width, +1 to expand by goflife rules)
-                    for(let [x, y] of cells) {
-                        widthRadius = Math.max(widthRadius, Math.abs(x) + 2);
-                    }
-                    for(let [x, y] of cells) {
-                        activeSet.add(x + 0 + 2 * widthRadius * (y + 0));
-                        toCheck.add(x + 0 + 2 * widthRadius * (y + 0));
-                        toCheck.add(x + 1 + 2 * widthRadius * (y + 0));
-                        toCheck.add(x - 1 + 2 * widthRadius * (y + 0));
-                        toCheck.add(x + 0 + 2 * widthRadius * (y + 1));
-                        toCheck.add(x + 1 + 2 * widthRadius * (y + 1));
-                        toCheck.add(x - 1 + 2 * widthRadius * (y + 1));
-                        toCheck.add(x + 0 + 2 * widthRadius * (y - 1));
-                        toCheck.add(x + 1 + 2 * widthRadius * (y - 1));
-                        toCheck.add(x - 1 + 2 * widthRadius * (y - 1));
-                    }
-                    let newCells = [];
-                    const mod = (a, b) => ((a % b) + b) % b;
-                    for(let v of toCheck.keys()) {
-                        let x = mod((v + widthRadius), (2 * widthRadius)) - widthRadius;
-                        let y = Math.floor((v + widthRadius) / (2 * widthRadius));
-                        let active = activeSet.has(x + 0 + 2 * widthRadius * (y + 0));
-                        let neighborsActive =
-                            activeSet.has(x + 1 + 2 * widthRadius * (y + 0)) +
-                            activeSet.has(x - 1 + 2 * widthRadius * (y + 0)) +
-                            activeSet.has(x + 0 + 2 * widthRadius * (y + 1)) +
-                            activeSet.has(x + 1 + 2 * widthRadius * (y + 1)) +
-                            activeSet.has(x - 1 + 2 * widthRadius * (y + 1)) +
-                            activeSet.has(x + 0 + 2 * widthRadius * (y - 1)) +
-                            activeSet.has(x + 1 + 2 * widthRadius * (y - 1)) +
-                            activeSet.has(x - 1 + 2 * widthRadius * (y - 1));
-                        if(neighborsActive === 3) active = true;
-                        else if(neighborsActive !== 2) active = false;
-                        if(active) newCells.push([x, y]);
-                    }
-                    cells = newCells;
-
-
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                    ctx.lineWidth = 0;
-                    ctx.fillStyle = "black";
-                    for(let [x, y] of cells) {
-                        ctx.fillRect(x*cellsize-xpos, y*cellsize-ypos, cellsize, cellsize);
-                    }
-
-                    requestAnimationFrame(update);
-                }
-                requestAnimationFrame(update);
-
-                function getLineCoords(x1, y1, x2, y2) {
-                    let line = [];
-                    if(x1 === x2 && y1 === y2) {
-                        return [[Math.round(x1), Math.round(y1)]];
-                    } else if(Math.abs(x1 - x2) > Math.abs(y1 - y2)) {
-                        if(x2 < x1) [x1, x2, y1, y2] = [x2, x1, y2, y1];
-                        for(let x = x1; x <= x2; x++) {
-                            line.push([Math.round(x), Math.round(y1 + (x - x1) / (x2 - x1) * (y2 - y1))]);
-                        }
-                    } else {
-                        if(y2 < y1) [x1, x2, y1, y2] = [x2, x1, y2, y1];
-                        for(let y = y1; y <= y2; y++) {
-                            line.push([Math.round(x1 + (y - y1) / (y2 - y1) * (x2 - x1)), Math.round(y)]);
-                        }
-                    }
-                    return line;
-                }
-
-                window.addEventListener("mousemove", (e) => {
-                    if(e.buttons % 2 === 1) {
-                        e.preventDefault();
-                        e.stopImmediatePropagation();
-                        e.cancelBubble = true;
-                        for(let [x, y] of getLineCoords(Math.floor((e.pageX-e.movementX+xpos)/cellsize), Math.floor((e.pageY-e.movementY+ypos)/cellsize), Math.floor((e.pageX+xpos)/cellsize), Math.floor((e.pageY+ypos)/cellsize))) {
-                            cells = cells.filter(([x2, y2]) => !(x === x2 && y === y2));
-                            cells.push([x, y]);
-                        }
-                    }
-                    if(e.buttons % 4 >= 2) {
-                        xpos -= e.movementX;
-                        ypos -= e.movementY;
-                    }
-                });
-            }
         </script>
+        <script src="background.js"></script>
     </body>
 </html>
