@@ -8,18 +8,22 @@
         <style>
             * {
                 box-sizing: border-box;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             }
             html {
                 width: 100%;
                 height: 100%;
             }
             body {
-                background: #dddddd;
                 margin: 0;
                 padding: 0;
                 height: 100%;
                 display: flex;
                 flex-direction: column;
+                background: white;
+            }
+            .dark-theme {
+                filter: invert(0.95) hue-rotate(180deg);
             }
 
             nav {
@@ -27,7 +31,6 @@
                 padding-block: 0.3rem;
                 box-sizing: border-box;
                 position: relative;
-                background: #44ff44;
                 display: flex;
                 justify-content: space-evenly;
                 flex-wrap: wrap;
@@ -47,7 +50,6 @@
             }
             nav > details > div {
                 position: absolute;
-                background: #66ff66;
                 padding: 0.2rem;
                 /*width: max-content;*/
                 width: max-content;
@@ -58,11 +60,11 @@
                 left: calc(100% + 4px);
                 top: 0;
                 width: max-content;
-                background: #66ff66;
                 padding: 0.2rem;
             }
             nav details > div {
                 border: 4px outset;
+                background: #eeeeee;
                 display: flex;
                 flex-direction: column;
             }
@@ -78,12 +80,30 @@
             footer {
                 margin: 0;
                 padding: 0 0.2rem;
-                background: #44ff44;
                 font-size: 1rem;
+                user-select: none;
+            }
+
+            #theme-btn {
+                position: absolute;
+                top: 0;
+                right: 0;
+                z-index: 1;
+                background: transparent;
+                border: none;
+                cursor: pointer;
+            }
+            #bg-canvas {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                z-index: -1;
             }
         </style>
 	</head>
     <body>
+        <button id="theme-btn">Dark mode</button>
+        <canvas id="bg-canvas"></canvas>
         <nav>
             <details>
                 <summary>Home</summary>
@@ -114,7 +134,7 @@
                 <summary>Experiments &amp; Projects</summary>
                 <div>
                     <details>
-                        <summary>Using p5.js</summary>
+                        <summary>Old p5.js projects</summary>
                         <div>
                             <a href="p5js/3d_platformer_1/index.html">3D Platformer</a>
                             <a href="p5js/the_matrix/index.html">The Matrix</a>
@@ -161,6 +181,114 @@
         </footer>
         <script>
             if(!["vilgotanl.github.io", "vilgotanl.netlify.app"].includes(location.hostname) && location.protocol !== "file:") location.replace("https://vilgotanl.github.io/site/");
+            
+            document.querySelector("#theme-btn").addEventListener("click", () => {
+                document.documentElement.style.transition = "filter 1s";
+                document.documentElement.classList.toggle("dark-theme");
+                localStorage.setItem("dark-mode", document.documentElement.classList.contains("dark-theme") ? "1" : "0");
+            });
+            if(localStorage.getItem("dark-mode") === "1") document.documentElement.classList.add("dark-theme");
+            document.body.addEventListener("contextmenu", (e) => {
+                e.preventDefault();
+            });
+
+
+            {
+                const canvas = document.querySelector("#bg-canvas");
+                canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight;
+                const ctx = document.querySelector("#bg-canvas").getContext("2d");
+                let cellsize = 4;
+                let cells = [];
+                let xpos = 0, ypos = 0;
+
+                function update() {
+
+                    let toCheck = new Set();
+                    let activeSet = new Set();
+                    let widthRadius = 0; // max abs x + 2 (+1 since width, +1 to expand by goflife rules)
+                    for(let [x, y] of cells) {
+                        widthRadius = Math.max(widthRadius, Math.abs(x) + 2);
+                    }
+                    for(let [x, y] of cells) {
+                        activeSet.add(x + 0 + 2 * widthRadius * (y + 0));
+                        toCheck.add(x + 0 + 2 * widthRadius * (y + 0));
+                        toCheck.add(x + 1 + 2 * widthRadius * (y + 0));
+                        toCheck.add(x - 1 + 2 * widthRadius * (y + 0));
+                        toCheck.add(x + 0 + 2 * widthRadius * (y + 1));
+                        toCheck.add(x + 1 + 2 * widthRadius * (y + 1));
+                        toCheck.add(x - 1 + 2 * widthRadius * (y + 1));
+                        toCheck.add(x + 0 + 2 * widthRadius * (y - 1));
+                        toCheck.add(x + 1 + 2 * widthRadius * (y - 1));
+                        toCheck.add(x - 1 + 2 * widthRadius * (y - 1));
+                    }
+                    let newCells = [];
+                    const mod = (a, b) => ((a % b) + b) % b;
+                    for(let v of toCheck.keys()) {
+                        let x = mod((v + widthRadius), (2 * widthRadius)) - widthRadius;
+                        let y = Math.floor((v + widthRadius) / (2 * widthRadius));
+                        let active = activeSet.has(x + 0 + 2 * widthRadius * (y + 0));
+                        let neighborsActive =
+                            activeSet.has(x + 1 + 2 * widthRadius * (y + 0)) +
+                            activeSet.has(x - 1 + 2 * widthRadius * (y + 0)) +
+                            activeSet.has(x + 0 + 2 * widthRadius * (y + 1)) +
+                            activeSet.has(x + 1 + 2 * widthRadius * (y + 1)) +
+                            activeSet.has(x - 1 + 2 * widthRadius * (y + 1)) +
+                            activeSet.has(x + 0 + 2 * widthRadius * (y - 1)) +
+                            activeSet.has(x + 1 + 2 * widthRadius * (y - 1)) +
+                            activeSet.has(x - 1 + 2 * widthRadius * (y - 1));
+                        if(neighborsActive === 3) active = true;
+                        else if(neighborsActive !== 2) active = false;
+                        if(active) newCells.push([x, y]);
+                    }
+                    cells = newCells;
+
+
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    ctx.lineWidth = 0;
+                    ctx.fillStyle = "black";
+                    for(let [x, y] of cells) {
+                        ctx.fillRect(x*cellsize-xpos, y*cellsize-ypos, cellsize, cellsize);
+                    }
+
+                    requestAnimationFrame(update);
+                }
+                requestAnimationFrame(update);
+
+                function getLineCoords(x1, y1, x2, y2) {
+                    let line = [];
+                    if(x1 === x2 && y1 === y2) {
+                        return [[Math.round(x1), Math.round(y1)]];
+                    } else if(Math.abs(x1 - x2) > Math.abs(y1 - y2)) {
+                        if(x2 < x1) [x1, x2, y1, y2] = [x2, x1, y2, y1];
+                        for(let x = x1; x <= x2; x++) {
+                            line.push([Math.round(x), Math.round(y1 + (x - x1) / (x2 - x1) * (y2 - y1))]);
+                        }
+                    } else {
+                        if(y2 < y1) [x1, x2, y1, y2] = [x2, x1, y2, y1];
+                        for(let y = y1; y <= y2; y++) {
+                            line.push([Math.round(x1 + (y - y1) / (y2 - y1) * (x2 - x1)), Math.round(y)]);
+                        }
+                    }
+                    return line;
+                }
+
+                window.addEventListener("mousemove", (e) => {
+                    if(e.buttons % 2 === 1) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        e.cancelBubble = true;
+                        for(let [x, y] of getLineCoords(Math.floor((e.pageX-e.movementX+xpos)/cellsize), Math.floor((e.pageY-e.movementY+ypos)/cellsize), Math.floor((e.pageX+xpos)/cellsize), Math.floor((e.pageY+ypos)/cellsize))) {
+                            cells = cells.filter(([x2, y2]) => !(x === x2 && y === y2));
+                            cells.push([x, y]);
+                        }
+                    }
+                    if(e.buttons % 4 >= 2) {
+                        xpos -= e.movementX;
+                        ypos -= e.movementY;
+                    }
+                });
+            }
         </script>
     </body>
 </html>
