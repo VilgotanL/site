@@ -10,13 +10,17 @@
     });
 
     let cellsize = 4;
+    let cellsizefloat = 4;
     let cells = [];
+    let state = {};
     let xpos = 0, ypos = 0;
     let mode = "Game of Life";
+    const drawModes = ["Game of Life"];
 
     function update() {
 
-        if(mode === "Game of Life") {
+        if(mode === "Game of Life" && (!state.pause || state.doGen)) {
+            state.doGen = false;
             let toCheck = new Set();
             let activeSet = new Set();
             let widthRadius = 0; // max abs x + 2 (+1 since width, +1 to expand by goflife rules)
@@ -130,24 +134,87 @@
         return line;
     }
 
-    window.addEventListener("mousemove", (e) => {
-        if(e.buttons % 2 === 1 && (mode !== "Rule 110" && mode !== "Langton's ant")) {
-            e.preventDefault();
-            e.stopImmediatePropagation();
-            e.cancelBubble = true;
-            for(let [x, y] of getLineCoords(Math.floor((e.pageX-e.movementX+xpos)/cellsize), Math.floor((e.pageY-e.movementY+ypos)/cellsize), Math.floor((e.pageX+xpos)/cellsize), Math.floor((e.pageY+ypos)/cellsize))) {
-                cells = cells.filter(([x2, y2]) => !(x === x2 && y === y2));
+    
+    function mouseDrawLine(x1, y1, x2, y2, setActive) {
+        let points = getLineCoords(x1, y1, x2, y2);
+
+        let maxRadius = 0;
+        for(let [x, y] of cells) maxRadius = Math.max(Math.abs(x), maxRadius);
+        let multiple = 2*maxRadius+1;
+        let indicesByHash = new Map();
+        for(let [i, [x, y]] of cells.entries()) {
+            indicesByHash.set(multiple*y+x, i);
+        }
+        
+        let toChange = [];
+        for(let [x, y] of points) {
+            let has = indicesByHash.has(multiple*y+x);
+            if(has === setActive) continue;
+            else toChange.push([x, y]);
+        }
+        if(setActive) {
+            for(let [x, y] of toChange) {
                 cells.push([x, y]);
             }
+        } else {
+            for(let i=0; i<toChange.length; i++) {
+                toChange[i] = indicesByHash.get(multiple*toChange[i][1]+toChange[i][0]);
+            }
+            toChange.sort((a, b) => a - b);
+            let nSpliced = 0;
+            for(let index of toChange) {
+                cells.splice(index-nSpliced, 1);
+                nSpliced++;
+            }
         }
-        if(e.buttons % 4 >= 2 || ((mode === "Rule 110" || mode === "Langton's ant") && e.buttons % 2 === 1)) {
+    }
+    let prevPageX, prevPageY;
+    window.addEventListener("mousedown", (e) => {
+        prevPageX = e.pageX; prevPageY = e.pageY;
+        if((e.buttons % 2 === 1 || e.buttons % 4 >= 2) && drawModes.includes(mode)) {
+            let x = Math.floor((e.pageX+xpos)/cellsize), y = Math.floor((e.pageY+ypos)/cellsize);
+            mouseDrawLine(x, y, x, y, e.buttons % 2 === 1);
+        }
+    });
+    window.addEventListener("mousemove", (e) => {
+        if((e.buttons % 2 === 1 || e.buttons % 4 >= 2) && drawModes.includes(mode)) {
+            let x1 = Math.floor((prevPageX+xpos)/cellsize), y1 = Math.floor((prevPageY+ypos)/cellsize), x2 = Math.floor((e.pageX+xpos)/cellsize), y2 = Math.floor((e.pageY+ypos)/cellsize);
+            mouseDrawLine(x1, y1, x2, y2, e.buttons % 2 === 1);
+        }
+        if((!drawModes.includes(mode) && e.buttons % 8 > 0) || e.buttons % 8 >= 4) {
             xpos -= e.movementX;
             ypos -= e.movementY;
         }
+        prevPageX = e.pageX; prevPageY = e.pageY;
+    });
+    let spaceDown = false;
+    window.addEventListener("keydown", (e) => {
+        if(e.key === " ") {
+            if(mode === "Game of Life" && !spaceDown) state.pause = !state.pause;
+            spaceDown = true;
+        } else if(e.key === "Enter") {
+            if(mode === "Game of Life" && state.pause) state.doGen = true;
+        }
+    });
+    window.addEventListener("keyup", (e) => {
+        if(e.key === " ") {
+            spaceDown = false;
+        }
+    });
+    window.addEventListener("wheel", (e) => {
+        cellsizefloat *= 2**(-e.deltaY/500);
+        if(cellsizefloat < 1) cellsizefloat = 1;
+        if(cellsizefloat > 32) cellsizefloat = 32;
+        if(!isFinite(cellsizefloat)) cellsizefloat = cellsize;
+        let prevCellSize = cellsize;
+        cellsize = Math.round(cellsizefloat);
+        xpos += Math.round((e.pageX+xpos)/prevCellSize*cellsize-xpos-e.pageX);
+        ypos += Math.round((e.pageY+ypos)/prevCellSize*cellsize-ypos-e.pageY);
     });
 
     document.querySelector("#bg-btn").addEventListener("click", () => {
         cells = [];
+        state = {};
         xpos = 0;
         ypos = 0;
         if(mode === "Game of Life") {
@@ -157,8 +224,6 @@
             xpos = Math.floor(-width*0.7);
             ypos = Math.floor(-height*0.3);
         } else if(mode === "Rule 110") {
-            mode = "Drawing";
-        } else if(mode === "Drawing") {
             mode = "Game of Life";
         }
         document.querySelector("#bg-btn").innerText = mode;
