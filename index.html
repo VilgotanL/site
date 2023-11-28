@@ -190,7 +190,7 @@
             - VilgotanL
         </footer>
         <script>
-            if(!["vilgotanl.github.io", "vilgotanl.netlify.app"].includes(location.hostname) && location.protocol !== "file:") location.replace("https://vilgotanl.github.io/site/");
+            if(!["vilgotanl.github.io", "vilgotanl.netlify.app"].includes(location.hostname) || location.hostname.endsWith(".archive.org") && location.protocol !== "file:") location.replace("https://vilgotanl.github.io/");
             
             document.querySelector("#theme-btn").addEventListener("click", () => {
                 document.documentElement.style.transition = "filter 1s";
