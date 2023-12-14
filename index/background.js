@@ -95,7 +95,7 @@
 
         
         ctx.lineWidth = 0;
-        ctx.fillStyle = "black";
+        ctx.fillStyle = "white";
         if(mode === "Rule 110") {
             ctx.clearRect(0, 0, width, height);
             for(let y=Math.max(0, Math.floor(ypos/cellsize)); y<Math.min(cells.length, Math.ceil((ypos+height)/cellsize)); y++) {
@@ -184,6 +184,10 @@
         if((!drawModes.includes(mode) && e.buttons % 8 > 0) || e.buttons % 8 >= 4) {
             xpos -= e.movementX;
             ypos -= e.movementY;
+            const bodyBounds = document.body.getBoundingClientRect();
+            document.body.style.marginLeft = (bodyBounds.x+e.movementX)+"px";
+            document.body.style.marginTop = (bodyBounds.y+e.movementY)+"px";
+            e.preventDefault();
         }
         prevPageX = e.pageX; prevPageY = e.pageY;
     });
@@ -202,6 +206,7 @@
         }
     });
     window.addEventListener("wheel", (e) => {
+        if(true) return;
         cellsizefloat *= 2**(-e.deltaY/500);
         if(cellsizefloat < 1) cellsizefloat = 1;
         if(cellsizefloat > 32) cellsizefloat = 32;

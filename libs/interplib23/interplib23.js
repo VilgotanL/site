@@ -3,12 +3,16 @@ const interplib23_stylesheet = new CSSStyleSheet();
 interplib23_stylesheet.replaceSync(`
     * {
         box-sizing: border-box;
-        font-family: "Segoe UI";
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         margin: 0;
         padding: 0;
     }
+    html {
+        height: 100%;
+    }
     body {
-        background: #dddddd;
+        background: lightgray;
+        min-height: 100%;
         display: flex;
         flex-direction: column;
         padding: 2% 15%;
@@ -108,7 +112,7 @@ interplib23_stylesheet.replaceSync(`
         caret-color: black;
     }
     .code-area-pre {
-
+        user-select: none;
     }
     .code-area-textarea, .code-area-pre, .code-area-pre *, .code-area-line-nums, .code-area-line-nums * {
         font-family: monospace;
@@ -445,14 +449,20 @@ class ConsoleArea extends HTMLElement {
                 };
             });
         }
-        this._reset = function() {
+        this._resetInput = function() {
             if(consoleInputCallback) {
                 consoleInputCallback(consoleCurrInput);
                 consoleInputCallback = null;
             }
-            consoleCurrOutput = "";
             consoleCurrInput = "";
             this._getch_buffer = "";
+            consoleTextarea.value = consoleCurrOutput + consoleCurrInput;
+            consoleCursorResetTime = Date.now();
+            updatePre();
+        }
+        this._reset = function() {
+            this._resetInput();
+            consoleCurrOutput = "";
             consoleTextarea.value = consoleCurrOutput + consoleCurrInput;
             consoleCursorResetTime = Date.now();
             updatePre();
@@ -476,7 +486,10 @@ class ConsoleArea extends HTMLElement {
         if(this._getch_buffer.length === 0) this._getch_buffer = await this._input();
         let ch = this._getch_buffer[0] ?? "\0";
         this._getch_buffer = this._getch_buffer.slice(1);
-        return ch;
+        return ch.charCodeAt(0);
+    }
+    reset_input() {
+        this._resetInput();
     }
     reset() {
         this._reset();

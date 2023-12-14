@@ -1,0 +1,169 @@
+<!DOCTYPE html> <!-- by VilgotanL -->
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Text Coder</title>
+
+        <style>
+            * {
+                box-sizing: border-box;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                margin: 0;
+                padding: 0;
+            }
+            html, body {
+                height: 100%;
+            }
+            body {
+                padding: 1.5rem;
+                background: darkgray;
+                display: flex;
+                gap: 1rem;
+            }
+            section {
+                border: outset 2px;
+                background: white;
+                flex: 1 0;
+                padding: 1rem;
+                display: flex;
+                gap: 1rem;
+                flex-direction: column;
+            }
+            h1 {
+                font-size: 1.9rem;
+            }
+            textarea {
+                flex: 1 0;
+                resize: none;
+                font-family: monospace;
+                font-size: 1rem;
+            }
+            select {
+                font-size: 1.2rem;
+                padding: 0.1rem 0.18rem;
+            }
+            section > div {
+                display: flex;
+                gap: 1rem;
+            }
+            section > div > select {
+                flex-grow: 1;
+            }
+        </style>
+    </head>
+    <body>
+        <section>
+            <h1>Decoded</h1>
+            <p>Plain Text</p>
+            <textarea id="decoded" spellcheck="false">Text</textarea>
+        </section>
+        <section>
+            <div>
+                <h1>Encoded</h1>
+                <select>
+                    <option selected value="none">None</option>
+                    <optgroup label="General">
+                        <option value="base64-ascii">Base64 (ASCII)</option>
+                        <option value="base64-utf8">Base64 (UTF-8)</option>
+                        <option value="big-decimal">Big Decimal from utf-8/ascii binary</option>
+                    </optgroup>
+                </select>
+            </div>
+            <p>Encoded Text</p>
+            <textarea id="encoded" spellcheck="false"></textarea>
+        </section>
+        
+        <script>
+            const decodedTextarea = document.querySelector("#decoded");
+            const encodedTextarea = document.querySelector("#encoded");
+            const codingSelect = document.querySelector("select");
+
+            let lastTextareaChanged = "encoded";
+
+            function encode() {
+                lastTextareaChanged = "encoded";
+                decodedTextarea.style.color = "black";
+                encodedTextarea.style.color = "black";
+
+                const coding = codingSelect.value;
+                let decoded = decodedTextarea.value;
+                let encoded;
+                let errored = false;
+
+                if(coding === "none") {
+                    encoded = decoded;
+                } else if(coding === "base64-ascii") {
+                    try {
+                        encoded = btoa(decoded);
+                    } catch(e) {
+                        encoded = "Invalid ASCII";
+                        errored = true;
+                    }
+                } else if(coding === "base64-utf8") {
+                    encoded = btoa(String.fromCharCode(...(new TextEncoder().encode(decoded)))); // It should not matter if we use fromCharCode or fromCodePoint since byte values will be passed, same in decoding
+                } else if(coding === "big-decimal") {
+                    encoded = BigInt("0b" + Array.from(new TextEncoder().encode(decoded)).map(byte => byte.toString(2).padStart(8, "0")).join("")).toString();
+                } else throw new Error();
+
+                encodedTextarea.value = encoded;
+                if(errored) encodedTextarea.style.color = "red";
+            }
+            function decode() {
+                lastTextareaChanged = "decoded";
+                decodedTextarea.style.color = "black";
+                encodedTextarea.style.color = "black";
+
+                const coding = codingSelect.value;
+                let decoded;
+                let encoded = encodedTextarea.value;
+                let errored = false;
+
+                if(coding === "none") {
+                    decoded = encoded;
+                } else if(coding === "base64-ascii") {
+                    try {
+                        decoded = atob(encoded);
+                    } catch(e) {
+                        decoded = "Invalid Base64";
+                        errored = true;
+                    }
+                } else if(coding === "base64-utf8") {
+                    try {
+                        decoded = new TextDecoder().decode(Uint8Array.from(atob(encoded).split("").map(ch => ch.charCodeAt(0))));
+                    } catch(e) {
+                        decoded = "Invalid Base64";
+                        errored = true;
+                    }
+                } else if(coding === "big-decimal") {
+                    try {
+                        let binaryNumStr = BigInt(encoded).toString(2);
+                        let paddedBinaryNumStr = binaryNumStr.padStart(binaryNumStr.length + 8 - (binaryNumStr.length % 8), "0");
+                        let bytes = [];
+                        for(let i=0; i<paddedBinaryNumStr.length; i+=8) {
+                            bytes.push(parseInt(paddedBinaryNumStr.slice(i, i+8), 2));
+                        }
+                        decoded = new TextDecoder().decode(Uint8Array.from(bytes));
+                    } catch(e) {
+                        decoded = "Invalid Decimal Number";
+                        errored = true;
+                    }
+                } else throw new Error();
+
+                decodedTextarea.value = decoded;
+                if(errored) decodedTextarea.style.color = "red";
+            }
+            encode();
+            decodedTextarea.addEventListener("input", encode);
+            encodedTextarea.addEventListener("input", decode);
+            codingSelect.addEventListener("change", () => {
+                if(lastTextareaChanged === "encoded") encode();
+                else if(lastTextareaChanged === "decoded") decode();
+            });
+
+            window.addEventListener("error", (e) => {
+                alert(e.message);
+            });
+        </script>
+    </body>
+</html>

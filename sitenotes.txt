@@ -1,1 +1,3 @@
 for libs like p5js, should use cdn
+for segoe ui good support, use: font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+(todo update all pages?)
