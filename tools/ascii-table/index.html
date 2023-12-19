@@ -42,19 +42,22 @@
             .chr {
                 color: blue;
             }
+            .del-chr {
+                transform: scale(160%) translate(0.25ch);
+            }
         </style>
 	</head>
     <body>
         <table>
             <tr>
-                <th>Dec.</th><th>Char</th><th>Hex &amp; Bin.</th><th>Name</th><th class="sep">|</th>
-                <th>Dec.</th><th>Char</th><th>Hex &amp; Bin.</th><th class="sep">|</th>
-                <th>Dec.</th><th>Char</th><th>Hex &amp; Bin.</th><th class="sep">|</th>
-                <th>Dec.</th><th>Char</th><th>Hex &amp; Bin.</th>
+                <th>Dec</th><th>Ch</th><th>Hex &amp; Bin.</th><th>Name</th><th class="sep">|</th>
+                <th>Dec</th><th>Ch</th><th>Hex &amp; Bin.</th><th class="sep">|</th>
+                <th>Dec</th><th>Ch</th><th>Hex &amp; Bin.</th><th class="sep">|</th>
+                <th>Dec</th><th>Ch</th><th>Hex &amp; Bin.</th>
             </tr>
             <tr>
                 <td class="dec">0</td><td class="chr">NUL</td><td>00 (00000000)</td><td>Null</td><th class="sep">|</th>
-                <td class="dec">32</td><td class="chr">SPACE</td><td>20 (00100000)</td><th class="sep">|</th>
+                <td class="dec">32</td><td class="chr"> </td><td>20 (00100000)</td><th class="sep">|</th>
                 <td class="dec">64</td><td class="chr">@</td><td>40 (01000000)</td><th class="sep">|</th>
                 <td class="dec">96</td><td class="chr">`</td><td>60 (01100000)</td>
             </tr>
@@ -242,7 +245,7 @@
                 <td class="dec">31</td><td class="chr">US</td><td>1F (00011111)</td><td>Unit Separator</td><th class="sep">|</th>
                 <td class="dec">63</td><td class="chr">?</td><td>3F (00111111)</td><th class="sep">|</th>
                 <td class="dec">95</td><td class="chr">_</td><td>5F (01011111)</td><th class="sep">|</th>
-                <td class="dec">127</td><td class="chr">DEL</td><td>7F (01111111)</td>
+                <td class="dec">127</td><td class="chr del-chr">␡</td><td>7F (01111111)</td>
             </tr>
         </table>
     </body>

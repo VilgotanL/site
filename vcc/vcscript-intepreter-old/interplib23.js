@@ -3,16 +3,12 @@ const interplib23_stylesheet = new CSSStyleSheet();
 interplib23_stylesheet.replaceSync(`
     * {
         box-sizing: border-box;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-family: "Segoe UI";
         margin: 0;
         padding: 0;
     }
-    html {
-        height: 100%;
-    }
     body {
-        background: lightgray;
-        min-height: 100%;
+        background: #dddddd;
         display: flex;
         flex-direction: column;
         padding: 2% 15%;
@@ -112,7 +108,7 @@ interplib23_stylesheet.replaceSync(`
         caret-color: black;
     }
     .code-area-pre {
-        user-select: none;
+
     }
     .code-area-textarea, .code-area-pre, .code-area-pre *, .code-area-line-nums, .code-area-line-nums * {
         font-family: monospace;
@@ -404,9 +400,6 @@ class ConsoleArea extends HTMLElement {
                 consoleTextarea.value = consoleCurrOutput + consoleCurrInput;
                 if(e.inputType === "insertLineBreak" && consoleTextarea.selectionStart === consoleTextarea.value.length) {
                     let input = consoleCurrInput;
-                    if(true /* TODO: Make setting called Single input with null appended */) {
-                        input = input.slice(0, -1)+"\0";
-                    }
                     consoleCurrOutput += consoleCurrInput;
                     consoleCurrInput = "";
                     consoleTextarea.value = consoleCurrOutput + consoleCurrInput;

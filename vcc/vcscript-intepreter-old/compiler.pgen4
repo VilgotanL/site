@@ -1,0 +1,33 @@
+_ = {" " | "\t" | "\n" | comment} # whitespace
+comment : "comment" = "//" {!"\n" \x00-\xFF} ["\n"] | multiline_comment
+multiline_comment = "/*" { multiline_comment | !"*/" \x00-\xFF } "*/"
+
+EMIT_ANY = !'"' !"'" !"\\" %\x20-\x7e | "\n" `\n` | `\` %\x00-\xFF
+HEX = 0-9 | a-f | A-F
+identifier : "identifier" = (a-z | A-Z | "_") {a-z | A-Z | 0-9 | "_"}
+string : "string" = `"` (('"' {!'"' !"\n" char} '"') | ("'" {!"'" !"\n" char} "'")) `"`
+char = escape | !"\\" EMIT_ANY
+escape = "\\" escape_combos | "\\" ("x" | "X") `\x` %HEX %HEX # TODO add unicode & stuff later
+escape_combos = "n" `\n` | "t" `\t` | "r" `\r` | '"' `\"` | "'" `\'` | "\\" `\\` # TODO add more combos later
+
+integer = ["-" `-`] {%0-9}+
+
+
+type
+	= "int" _ "<" _ integer _ "," _ integer _ ">"
+	| "arr" _ "<" _ type [_ "," _ integer] _ ">"
+	| "any"
+
+
+
+main = PREPEND_CODE _ { statement _ }
+
+statement
+	= type _ identifier [_ "=" _ expr];
+
+
+
+
+
+
+PREPEND_CODE = ``

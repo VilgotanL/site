@@ -16,6 +16,7 @@
 - 3d platformer with camera rotation and good levels and physics
 - make sl3 programming language
 - add site easter eggs and that
+- css colors page
 
 - make index infinite area middle mouse or arrow keys to move and starting walls for physics & move index.html files to index/ & index search bar
 	- this page could also save also so you can customize it

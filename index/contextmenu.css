@@ -1,0 +1,26 @@
+.contextmenu {
+    display: none;
+    gap: 3px;
+    position: absolute;
+    background: #222222;
+    border: 4px solid #333333;
+    padding: 2px;
+    user-select: none;
+}
+.contextmenu-visible {
+    display: flex;
+    flex-direction: column;
+    align-items: end;
+}
+
+.contextmenu > .mode-select {
+    display: flex;
+    gap: 1ch;
+}
+.contextmenu > .mode-select > span {
+    cursor: pointer;
+    text-decoration: underline;
+}
+.contextmenu > .mode-select > .mode-selected {
+    outline: 4px solid #0080ffcc;
+}

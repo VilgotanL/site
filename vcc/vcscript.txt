@@ -1,0 +1,19 @@
+reduction features ordered generally from highest level:
+
+
+
+
+
+
+
+
+reduction to while loops | conditional goto
+reduction of unbounded integers
+
+
+
+{
+	"vars": {
+	
+	},
+}

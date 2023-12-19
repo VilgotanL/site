@@ -1,0 +1,25 @@
+<!DOCTYPE html> <!-- by VilgotanL -->
+<html>
+    <head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>VCScript Interpreter</title>
+
+        <script src="interplib23.js"></script>
+        <script defer src="compiler.js"></script>
+        <script defer src="main.js"></script>
+        <script defer src="highlighting.js"></script>
+    </head>
+    <body>
+        <header>
+            <h1>Waiting for JS. <noscript>Please enable JavaScript.</noscript></h1>
+            <button id="theme">Toggle Theme</button>
+        </header>
+        <console-area></console-area>
+        <section class="buttons">
+            <button id="run-btn">Run</button>
+            <button id="compile-btn">Compile 2 JS</button>
+        </section>
+        <code-area localstorage-name="main"></code-area>
+    </body>
+</html>

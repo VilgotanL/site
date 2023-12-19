@@ -9,7 +9,7 @@
             * {
                 box-sizing: border-box;
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                color: #dfdfdf;
+                color: #eeeeee;
             }
             html {
                 width: 100%;
@@ -120,6 +120,7 @@
                 z-index: -1;
             }
         </style>
+        <link rel="stylesheet" href="index/contextmenu.css" />
 	</head>
     <body>
         <button id="bg-btn">Game of Life</button>
@@ -154,6 +155,7 @@
                     </details>
                     <a href="tools/time-viewer/index.html">Current Time</a>
                     <a href="tools/roblox-fav-games-viewer/index.html">Roblox Favorite Games Viewer</a>
+                    <a href="projects/gifmaker/index.html">GifMaker</a>
                 </div>
             </details>
             <details>
@@ -197,7 +199,6 @@
             <p>List of unlisted projects except within this list</p>
             <ul>
                 <li><a href="projects/ios-camera-maze-solver/index.html">IOS Camera Maze Solver</a></li>
-                <li><a href="projects/gifmaker/index.html">WIP GifMaker</a></li>
                 <li><a href="projects/parsergen4/index.html">WIP PARSER GEN 4!</a></li>
                 <li><a href="projects/mathcomplicator/index.html">WIP (currently broken) Math complicator 1000</a></li>
             </ul>
@@ -205,13 +206,18 @@
         <footer>
             - VilgotanL
         </footer>
+
+        <div class="contextmenu">
+            <div class="mode-select"><span class="mode-selected">Interact</span><span>Edit</span><span>Draw</span></div>
+            <div>Insert ▶</div>
+        </div>
+
         <script>
             if(!(["vilgotanl.github.io", "vilgotanl.netlify.app"].includes(location.hostname) || location.hostname.endsWith(".archive.org")) && location.protocol !== "file:") location.replace("https://vilgotanl.github.io/");
-            
-            document.body.addEventListener("contextmenu", (e) => {
-                e.preventDefault();
-            });
         </script>
+        <script src="index/world.js"></script>
         <script src="index/background.js"></script>
+        <script src="index/physics.js"></script>
+        <script src="index/contextmenu.js"></script>
     </body>
 </html>
