@@ -17,8 +17,9 @@
 - make sl3 programming language
 - add site easter eggs and that
 - css colors page
+- graph visualizer, directed and undirected, and maybe weighted graphs
 
-- make index infinite area middle mouse or arrow keys to move and starting walls for physics & move index.html files to index/ & index search bar
+- make index infinite area middle mouse or arrow keys to move and starting walls for physics & move index.html files to index/ & index search bar maybe using <search>
 	- this page could also save also so you can customize it
 	- make it work with ctrl zooming and if needed zooming by two fingers
 	- context menu for inserting anything & drag and drop

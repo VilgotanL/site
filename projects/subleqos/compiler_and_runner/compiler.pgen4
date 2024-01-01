@@ -1,3 +1,6 @@
+# VilgotanL's Subleq Language
+# Named pgen4 exprs are for grammar readability
+
 _ = {" " | "\t" | "\n" | comment} # whitespace
 comment : "comment" = "//" {!"\n" \x00-\xFF} ["\n"] | multiline_comment
 multiline_comment = "/*" { multiline_comment | !"*/" \x00-\xFF } "*/"
@@ -5,29 +8,195 @@ multiline_comment = "/*" { multiline_comment | !"*/" \x00-\xFF } "*/"
 EMIT_ANY = !'"' !"'" !"\\" %\x20-\x7e | "\n" `\n` | `\` %\x00-\xFF
 HEX = 0-9 | a-f | A-F
 identifier : "identifier" = (a-z | A-Z | "_") {a-z | A-Z | 0-9 | "_"}
-string : "string" = `"` (('"' {!'"' !"\n" char} '"') | ("'" {!"'" !"\n" char} "'")) `"`
+idend = !(A-Z | a-z | 0-9 | "_")
+string : "string" = `"` ('"' {!'"' !"\n" char} '"') `"`
 char = escape | !"\\" EMIT_ANY
 escape = "\\" escape_combos | "\\" ("x" | "X") `\x` %HEX %HEX # TODO add unicode & stuff later
-escape_combos = "n" `\n` | "t" `\t` | "r" `\r` | '"' `\"` | "'" `\'` | "\\" `\\` # TODO add more combos later
+escape_combos = "n" `\n` | "t" `\t` | "r" `\r` | '"' `\"` | "'" `\'` | "\\" `\\` | "0" `\0` # TODO add more combos later
+
+integer : "integer" = `(` [%"-"] %(1-9 {0-9} | "0") `n)`
+primitive_type = ("int" | "char" | "string" | "void" | "bool") idend
+type = ("const" idend [_ primitive_type] | "mallocated" idend [_ primitive_type] | primitive_type)  {_ "*"} # types are actually meaningless other than readability
 
 
 
-main = PREPEND_CODE _ { function _ | statement _ }
+main : "program" = PREPEND_CODE _ scope_block _ APPEND_CODE
 
-function = !"" # TODO
-statement
-	= 
+scope_block = &&{ _ (lbl_stmt_predecl | !!semicolon_statement) } {_ semicolon_statement}
+lbl_stmt_predecl = Label( `{ let name = "` %identifier _ ":" `"; let lbl = mkLabel("varlbl_"+name); let variable = scopes.at(-1).makeVar(name, b.addData(mkRef(lbl))); }` )
+lbl_stmt_at = Label( `{ let name = "` %identifier _ ":" `"; let lblRef = scopes.at(-1).variables.get(name).data; assert(lblRef && lblRef.value); b.add(lblRef.value); }` )
+
+semicolon_statement : "statement"
+	= "while" idend _ "(" _ `{ let oldScopes = scopes; { let scopes = [...oldScopes, new Scope()]; let tmp = b.tmp(); let retval = tmp.data; let lblCheck = b.add(mkLabel("whilecheck")); ` expr _ ")" _ ` let lblEnd = mkLabel("whileend"); scopes.at(-1).loopBreakLbl = lblEnd; scopes.at(-1).loopContinueLbl = lblCheck; b.add(mkLitRef(0n), mkRef(retval), mkRef(lblEnd)); ` semicolon_statement ` b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(lblCheck), lblEnd); tmp.release(); }}`
+	| "for" idend _ "(" _ `{ let oldScopes = scopes; { let scopes = [...oldScopes, new Scope()]; ` [statement _] ";" _ ` let tmp = b.tmp(); let retval = tmp.data; let lbl2ndtime = mkLabel("for2ndtime"); let lblCheck = b.add(mkLabel("forcheck")); let lblBody = mkLabel("forbody"); let lblEnd = mkLabel("forend"); scopes.at(-1).loopBreakLbl = lblEnd; scopes.at(-1).loopContinueLbl = lbl2ndtime; ` (expr _ | `b.setZ(retval); b.add(mkLitRef(-1n), mkRef(retval), mkNxt());`) ";" _ ` b.add(mkLitRef(0n), mkRef(retval), mkRef(lblEnd)); b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(lblBody)); b.add(lbl2ndtime); ` [statement _] ")" _ ` b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(lblCheck)); b.add(lblBody); ` semicolon_statement ` b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(lbl2ndtime), lblEnd); tmp.release(); } }`
+	| BlockStmt( `{ let oldScopes = scopes; { let scopes = [...oldScopes, new Scope()]; ` "{" _ scope_block _ "}" ` } }` )
+	| lbl_stmt_at
+	| "jmp" idend _ `{ let retval = mkLabel("jmp"); ` expr ` b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), retval, mkUninit()); }` _ ";"
+	| "break" idend _ `{ let scope = scopes.slice().reverse().find(scope => scope.loopBreakLbl); if(!scope) throw new Error("Break can only be in loop"); b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(scope.loopBreakLbl)); }` _ ";"
+	| "continue" idend _ `{ let scope = scopes.slice().reverse().find(scope => scope.loopContinueLbl); if(!scope) throw new Error("Continue can only be in loop"); b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(scope.loopContinueLbl)); }` _ ";"
+	| "return" idend _ `{ let scope = scopes.slice().reverse().find(scope => scope.funcRetvalData); if(!scope) throw new Error("Return can only be in function"); let retval = scope.funcRetvalData; /*this should be safe to do*/ ` expr ` b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(scope.funcRetLbl)); }` _ ";"
+	| if_stmt
+	| function_stmt
+	| statement _ ";"
+	| asm_stmt
+	| ";"
+statement : "statement" # statement inside for loop
+	= declaration
+	| Assign( `{ let addrTmp = b.tmp(); let retval = addrTmp.data; ` lvalue _ "=" _ ` let exprTmp = b.tmp(); retval = exprTmp.data; ` expr ` let negAddrTmp = b.tmp(); b.setZ(negAddrTmp.data); b.subTo(addrTmp.data, negAddrTmp.data); let [lbl1, lbl2, lbl3] = [mkLabel("assign1"), mkLabel("assign2"), mkLabel("assign3")]; b.setZ(lbl1); b.setZ(lbl2); b.setZ(lbl3); b.subTo(negAddrTmp.data, lbl1); b.subTo(negAddrTmp.data, lbl2); b.subTo(negAddrTmp.data, lbl3); b.setZ(addrTmp.data); b.subTo(exprTmp.data, addrTmp.data); b.add(lbl1, mkUninit(), lbl2, mkUninit(), mkNxt(), mkRef(addrTmp.data), lbl3, mkUninit(), mkNxt()); addrTmp.release(); exprTmp.release(); negAddrTmp.release(); }` )
+	| PlusOrMinusEquals( `{ let addrLbl = mkLabel("pluseqaddr"); let retval = addrLbl; ` lvalue _ ` let op = "` %("+="|"-=") _ `"; let exprTmp = b.tmp(); retval = exprTmp.data; ` expr ` if(op === "-=") {b.add(mkRef(exprTmp.data), addrLbl, mkUninit(), mkNxt());} else {b.setZ(b.jmpTmp); b.subTo(exprTmp.data, b.jmpTmp); b.add(mkRef(b.jmpTmp), addrLbl, mkUninit(), mkNxt());} exprTmp.release(); }` )
+	| PlusPlusOrMinusMinus( `{ let addrLbl = mkLabel("plusplusaddr"); let retval = addrLbl; ` lvalue _ ` let op = "` %("++"|"--") `"; b.add(mkLitRef(op === "++" ? -1n : 1n), addrLbl, mkUninit(), mkNxt()); }` )
+	| "true_io_putch" idend _ `{ let tmp = b.tmp(); let retval = tmp.data; ` expr ` b.add(mkRef(retval), mkLiteral(-1n), mkNxt()); tmp.release(); }`
+	| Free( "true_free" idend _ "(" _ `{ let ptr = b.addData(mkUninit()); { let retval = ptr; ` expr ` } free(b, ptr); }` _ ")" )
+	| ExprStmt( `{ let tmp = b.tmp(); let retval = tmp.data; ` expr ` tmp.release(); }` )
+if_stmt
+	= `{ let afterLbl = mkLabel("if.after");` "if" idend _ "(" _ `{ let skipLbl = mkLabel("if.skip"); let tmp = b.tmp(); let retval = tmp.data; ` expr ` b.add(mkLitRef(0n), mkRef(retval), mkRef(skipLbl)); tmp.release(); ` _ ")" _ semicolon_statement ` b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(afterLbl), skipLbl); }`
+	{_ "else" idend _ "if" idend _ "(" _ `{ let skipLbl = mkLabel("if.ifelseskip"); let tmp = b.tmp(); let retval = tmp.data; ` expr ` b.add(mkLitRef(0n), mkRef(retval), mkRef(skipLbl)); tmp.release(); ` _ ")" _ semicolon_statement ` b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(afterLbl), skipLbl); }`}
+	[_ "else" idend _ semicolon_statement]
+	`b.add(afterLbl); }`
+
+declaration
+	= type _ `{ let name = "` %identifier `"; let variable = scopes.at(-1).makeVar(name, b.addData(mkUninit("var_"+name))); let retval = variable.data; ` _ "=" _ expr ` }`
+	| type _ `{ let name = "` %identifier `"; let variable = scopes.at(-1).makeVar(name, b.addData(mkUninit("var_"+name))); }`
+	
+function_stmt
+	= static_function
+	| inline_function
+	| dynamic_function
+static_function =
+	`{ let name = "` ["static" idend _] type _ %identifier _ `"; let lbl = mkLabel("func"); let entryLbl = mkLabel("funcentry"); let retAddrData = mkUninit(); let variable = scopes.at(-1).makeVar(name, b.addData(mkRef(lbl)));`
+	`let argNames = [` "(" [_ type _ `"` %identifier `"` {_ "," _ type _ `, "` %identifier `"`}] _ ")" `]; let argData = argNames.map(name => mkUninit());`
+	`let oldScopes = scopes; { let scopes = [...oldScopes, new Scope()]; let skipLbl = mkLabel("funcskip"); argNames.forEach((name, i) => scopes.at(-1).makeVar(name, argData[i])); let funcRetvalData = mkUninit(); let funcRetLbl = mkLabel("funcscoperetlbl"); scopes.at(-1).funcRetvalData = funcRetvalData; scopes.at(-1).funcRetLbl = funcRetLbl;`
+	`b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(skipLbl)); b.pushTemps(); b.add(lbl, mkRef(entryLbl), retAddrData, funcRetvalData, ...argData);`
+	`b.add(entryLbl);` _ semicolon_statement `b.add(funcRetLbl); let retJmpLbl = mkLabel("func.retjmp"); b.copyTo(retAddrData, retJmpLbl); b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), retJmpLbl, mkUninit()); b.popTemps(); `
+	`b.add(skipLbl); }}`
+inline_function =
+	`{ let name = "` "inline" idend _ type _ %identifier _ `"; let func = scopes.at(-1).makeFunc(name, new InlineFunc());`
+	`let argNames = [` "(" [_ type _ `"` %identifier `"` {_ "," _ type _ `, "` %identifier `"`}] _ ")" `]; func.argNames = argNames;`
+	`func.generate = function(b, scopes, argData, retval) { let oldScopes = scopes; { let scopes = [...oldScopes, new Scope()]; argNames.forEach((name, i) => scopes.at(-1).makeVar(name, argData[i])); let funcRetLbl = mkLabel("inlinefuncscoperetlbl"); scopes.at(-1).funcRetvalData = retval; scopes.at(-1).funcRetLbl = funcRetLbl;`
+	_ semicolon_statement `b.add(funcRetLbl); }};}`
+dynamic_function =
+	`{ let name = "` "dynamic" idend _ type _ %identifier _ `"; let lbl = mkLabel("func"); let entryLbl = mkLabel("funcentry"); let retAddrData = mkUninit(); let func = scopes.at(-1).makeFunc(name, new DynamicFunc()); func.lbl = lbl;`
+	`let argNames = [` "(" [_ type _ `"` %identifier `"` {_ "," _ type _ `, "` %identifier `"`}] _ ")" `]; let argData = argNames.map(name => mkUninit());`
+	`let oldScopes = scopes; let origB = b; { let scopes = [...oldScopes, new Scope()]; let skipLbl = mkLabel("funcskip"); argNames.forEach((name, i) => scopes.at(-1).makeVar(name, argData[i])); let funcRetvalData = mkUninit(); let funcRetLbl = mkLabel("funcscoperetlbl"); scopes.at(-1).funcRetvalData = funcRetvalData; scopes.at(-1).funcRetLbl = funcRetLbl;`
+	`b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(skipLbl)); let endLbl = mkLabel("dynfunc.end"), lengthLbl = mkLabel("dynfunc.len"); { origB.add(lengthLbl, mkUninit(), lbl); let b = origB.add(new Block()); b.true_header.push(mkRef(entryLbl), retAddrData, funcRetvalData, ...argData, entryLbl);`
+	_ semicolon_statement `b.add(funcRetLbl); let retJmpLbl = mkLabel("func.retjmp"); b.copyTo(retAddrData, retJmpLbl); b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), retJmpLbl, mkUninit()); } `
+	`b.add(endLbl, skipLbl); b.copyTo(b.addData(mkRef(endLbl)), lengthLbl); b.subTo(b.addData(mkRef(lbl)), lengthLbl); }}`
+
+# Important to know: asm literals don't reset across multiple calls
+asm_stmt : "asm statement" = "asm" idend _ "{" `{ let asmLabels = new Map(); ` &&{_ (asm_label_pre | !!asm_stmt_instr)} {_ asm_stmt_instr} ` }` _ "}"
+asm_label_pre = `{ let name = "` %identifier _ ":" `"; if(asmLabels.has(name)) throw new Error("Duplicate asm label in same scope: "+name); asmLabels.set(name, mkLabel("asmlbl_"+name)); }`
+asm_stmt_instr
+	= Int( `b.add(mkLiteral(` integer `));` )
+	| IntRef( "@" `b.add(mkLitRef(` integer `));` )
+	| Offset( `{ let offset = 0n; ` "?" ["+" `offset += ` integer `;` | "-" `offset -= ` integer `;`] ` b.add(mkRelative(offset)); }` )
+	| Label( `{ let name = "` %identifier _ ":" `"; assert(asmLabels.has(name)); b.add(asmLabels.get(name)); }` )
+	| Variable( `{ let name = "` %identifier `"; let scope = scopes.slice().reverse().find(scope => scope.variables.has(name)); if(!asmLabels.has(name) && !scope) throw new Error("Unknown asm label or variable: "+name); if(asmLabels.has(name)) { b.add(mkRef(asmLabels.get(name))); } else { b.add(mkRef(scope.variables.get(name).data)); } }` )
+	
+
+# Expressions are given a js variable called "retval" which is a label pointing to an unitialized integer of memory
+# Expresions are to put their result in the retval label's value by using a ref, or leave it any value (even uninitialized) if the expression don't return anything
+expr : "expression" = ternary_expr
+
+# Booleans: true is when > 0, false is when <= 0
+ternary_expr
+	= or_expr _ "?" _ ` { let noLbl = mkLabel("ternaryno"); let afterLbl = mkLabel("ternaryafter"); b.add(mkLitRef(0n), mkRef(retval), mkRef(noLbl)); ` or_expr _ ":" _ ` b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(afterLbl), noLbl); ` ternary_expr ` b.add(afterLbl); }`
+	| or_expr
+or_expr
+	= `{ let yesLbl = mkLabel("oryes"); let afterLbl = mkLabel("orafter"); ` and_expr ` b.add(mkLitRef(0n), mkRef(retval), mkRelative(4n), mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(yesLbl)); ` { _ "||" _ and_expr ` b.add(mkLitRef(0n), mkRef(retval), mkRelative(4n), mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(yesLbl)); ` }+ ` b.setZ(retval); b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(afterLbl)); b.add(yesLbl); b.setZ(retval); b.add(mkLitRef(-1n), mkRef(retval), mkNxt(), afterLbl); }`
+	| and_expr
+and_expr
+	= `{ let noLbl = mkLabel("andno"); let afterLbl = mkLabel("andafter"); ` comp_expr ` b.add(mkLitRef(0n), mkRef(retval), mkRef(noLbl)); ` { _ "&&" _ comp_expr ` b.add(mkLitRef(0n), mkRef(retval), mkRef(noLbl)); ` }+ ` b.setZ(retval); b.add(mkLitRef(-1n), mkRef(retval), mkNxt()); b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(afterLbl)); b.add(noLbl); b.setZ(retval); b.add(afterLbl); }`
+	| comp_expr
+
+comp_expr
+	= LessThan( `{ let tmp = b.tmp(); { let retval = tmp.data; ` sum_expr _ "<" _ `} ` sum_expr ` b.subTo(tmp.data, retval); tmp.release(); }` )
+	| GreaterThan( `{ ` sum_expr _ ">" _ ` let tmp = b.tmp(); { let retval = tmp.data; ` sum_expr `} b.subTo(tmp.data, retval); tmp.release(); }` )
+	| LessEqThan( `{ let tmp = b.tmp(); { let retval = tmp.data; ` sum_expr _ "<=" _ `} ` sum_expr ` b.subTo(tmp.data, retval); b.add(mkLitRef(-1n), mkRef(retval), mkNxt()); tmp.release(); }` )
+	| GreaterEqThan( `{ ` sum_expr _ ">=" _ ` let tmp = b.tmp(); { let retval = tmp.data; ` sum_expr `} b.subTo(tmp.data, retval); b.add(mkLitRef(-1n), mkRef(retval), mkNxt()); tmp.release(); }` )
+	| Equals( `{ ` sum_expr _ "==" _ ` let tmp = b.tmp(); { let retval = tmp.data; ` sum_expr `} b.subTo(tmp.data, retval); let lblNo = mkLabel("no"), lblAfter = mkLabel("after"); b.add(mkLitRef(-1n), mkRef(retval), mkRef(lblNo)); b.setZ(tmp.data); b.add(mkRef(retval), mkRef(tmp.data), mkNxt(), mkLitRef(-2n), mkRef(tmp.data), mkRef(lblNo)); b.setZ(retval); b.add(mkLitRef(-1n), mkRef(retval), mkNxt()); b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(lblAfter), lblNo); b.setZ(retval); b.add(lblAfter); tmp.release(); }` )
+	| NotEquals( `{ ` sum_expr _ "!=" _ ` let tmp = b.tmp(); { let retval = tmp.data; ` sum_expr `} b.subTo(tmp.data, retval); let lblNo = mkLabel("no"), lblAfter = mkLabel("after"); /*lblNo is actually lblYes here*/ b.add(mkLitRef(-1n), mkRef(retval), mkRef(lblNo)); b.setZ(tmp.data); b.add(mkRef(retval), mkRef(tmp.data), mkNxt(), mkLitRef(-2n), mkRef(tmp.data), mkRef(lblNo)); b.setZ(retval); b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(lblAfter), lblNo); b.setZ(retval); b.add(mkLitRef(-1n), mkRef(retval), mkNxt()); b.add(lblAfter); tmp.release(); }` )
+	| sum_expr
+
+sum_expr = Sum( `{ let origRetval = retval; ` prefix_expr ` ` {_ `{ let op="` %("+"|"-") _ `"; let tmp = b.tmp(); let retval = tmp.data; ` prefix_expr ` if(op === "+") b.addTo(tmp.data, origRetval); else b.subTo(tmp.data, origRetval); tmp.release(); }`}+ `}` ) | prefix_expr
+
+prefix_expr
+	= Deref( "*" _ `{ b.setZ(retval); let lbl = mkLabel("deref"); let tmp = b.tmp(); b.setZ(tmp.data); { let retval = lbl; ` prefix_expr ` } b.add(lbl, mkUninit(), mkRef(tmp.data), mkNxt()); b.subTo(tmp.data, retval); tmp.release(); }` )
+	| Length( "len" idend _ `{ b.setZ(retval); let lbl = mkLabel("deref"); let tmp = b.tmp(); b.setZ(tmp.data); { let retval = lbl; ` prefix_expr ` } b.add(mkLitRef(1n), mkRef(lbl), mkNxt()); b.add(lbl, mkUninit(), mkRef(tmp.data), mkNxt()); b.subTo(tmp.data, retval); tmp.release(); }` )
+	| Negative( "-" _ `{ let origRetval = retval; { let tmp = b.tmp(); let retval = tmp.data; ` prefix_expr ` b.setZ(origRetval); b.subTo(tmp.data, origRetval); tmp.release(); }}` )
+	| Not( "!" _ `{ let origRetval = retval; { let tmp = b.tmp(); let retval = tmp.data; ` prefix_expr ` b.setZ(origRetval); b.subTo(tmp.data, origRetval); b.add(mkLitRef(-1n), mkRef(origRetval), mkNxt()); tmp.release(); }}` )
+	| AddrOf( "&" _ lvalue ) # LValues use retval for the address yielded
+	| Malloc( "true_malloc" idend _ "(" _ `{ let origRetval = retval, size = b.addData(mkUninit()); { let retval = size; ` expr ` } malloc(b, origRetval, size); }` _ ")" )
+	| DynFuncPtr( "dynf_ptr" idend _ "(" _ `{ let name = "` %identifier `"; let scope = scopes.slice().reverse().find(scope => scope.nonStaticFuncs.has(name) && scope.nonStaticFuncs.get(name) instanceof DynamicFunc); if(!scope) throw new Error("dynf_ptr() recieved non-dynamic function or unknown variable"); let lbl = scope.nonStaticFuncs.get(name).lbl; b.copyTo(b.addData(mkRef(lbl)), retval); }` _ ")" )
+	| after_prefix_expr
+after_prefix_expr = access_expr
+
+access_expr
+	= (possibly_nonstatic_funccall | value) {_ access_expr_op}+ # base case stored in retval, ops operate on retval
+	| possibly_nonstatic_funccall
+	| value
+possibly_nonstatic_funccall
+	= PossiblyNonStaticFuncCall( `{ let name="` &&(%identifier) `"; let scope = scopes.slice().reverse().find(scope => scope.nonStaticFuncs.has(name)); if(scope) { let func = scope.nonStaticFuncs.get(name); if(func instanceof InlineFunc) { ` &&inline_call ` } else if(func instanceof DynamicFunc) { ` &&dynamic_call ` } else throw new Error("Unknown/UnImplemented nonstatic function"); } else { ` value _ function_call_by_pointer ` }}` )
+access_expr_op
+	= Index( `{ let lbl = mkLabel("deref"); let tmp = b.tmp(); b.copyTo(retval, lbl); { let retval = tmp.data; ` _ "[" _ expr _ "]" ` b.addTo(tmp.data, lbl); } b.setZ(tmp.data); b.add(lbl, mkUninit(), mkRef(tmp.data), mkNxt()); b.setZ(retval); b.subTo(tmp.data, retval); tmp.release(); }` )
+	| function_call_by_pointer
+function_call_by_pointer =
+	`{ let currArgOff = 3n; let negTmp = b.tmp(); b.setZ(negTmp.data); b.subTo(retval, negTmp.data); let argTmps = [];` "(" [_ function_call_by_pointer_arg {_ "," _ function_call_by_pointer_arg}] _ ")"
+	`argTmps.forEach(tmp => { let addrLbl1 = mkLabel("argaddr"), addrLbl2 = mkLabel("argaddr"), addrLbl3 = mkLabel("argaddr"); b.setZ(addrLbl1); b.setZ(addrLbl2); b.setZ(addrLbl3); b.add(mkLitRef(currArgOff), mkRef(negTmp.data), mkNxt()); b.subTo(negTmp.data, addrLbl1); b.subTo(negTmp.data, addrLbl2); b.subTo(negTmp.data, addrLbl3); b.add(mkLitRef(-currArgOff), mkRef(negTmp.data), mkNxt()); let retval = tmp.data; b.setZ(b.jmpTmp); b.subTo(retval, b.jmpTmp); b.add(addrLbl1, mkUninit(), addrLbl2, mkUninit(), mkNxt()); b.add(mkRef(b.jmpTmp), addrLbl3, mkUninit(), mkNxt()); currArgOff++; });`
+	`let retLabel = mkLabel("funccallret"); let retLabelData = b.addData(mkRef(retLabel)); let retAddrSetLbl1 = mkLabel("funccall.rasl"), retAddrSetLbl2 = mkLabel("funccall.rasl"), retAddrSetLbl3 = mkLabel("funccall.rasl"); b.setZ(retAddrSetLbl1); b.setZ(retAddrSetLbl2); b.setZ(retAddrSetLbl3); b.add(mkLitRef(1n), mkRef(negTmp.data), mkNxt()); b.subTo(negTmp.data, retAddrSetLbl1); b.subTo(negTmp.data, retAddrSetLbl2); b.subTo(negTmp.data, retAddrSetLbl3); b.add(mkLitRef(-1n), mkRef(negTmp.data), mkNxt()); b.setZ(b.jmpTmp); b.subTo(retLabelData, b.jmpTmp); b.add(retAddrSetLbl1, mkUninit(), retAddrSetLbl2, mkUninit(), mkNxt()); b.add(mkRef(b.jmpTmp), retAddrSetLbl3, mkUninit(), mkNxt());`
+	`let jmpEntryGetLbl = mkLabel("funccallgetjmp"); let jmpEntryLbl = mkLabel("funccalljmp"); b.setZ(jmpEntryGetLbl); b.setZ(jmpEntryLbl); b.subTo(negTmp.data, jmpEntryGetLbl); b.setZ(b.jmpTmp); b.add(jmpEntryGetLbl, mkUninit(), mkRef(b.jmpTmp), mkNxt()); b.subTo(b.jmpTmp, jmpEntryLbl); b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), jmpEntryLbl, mkUninit()); b.add(retLabel); let getRetvalLbl = mkLabel("funccall.getretval"); b.setZ(getRetvalLbl); b.subTo(negTmp.data, getRetvalLbl); b.add(mkLitRef(-2n), mkRef(getRetvalLbl), mkNxt()); b.setZ(b.jmpTmp); b.add(getRetvalLbl, mkUninit(), mkRef(b.jmpTmp), mkNxt()); b.setZ(retval); b.subTo(b.jmpTmp, retval); negTmp.release(); argTmps.forEach(t => t.release()); }`
+function_call_by_pointer_arg = `{ let aTmp = b.tmp(); argTmps.push(aTmp); let retval = aTmp.data; ` expr ` }`
+dynamic_call =
+	`{ let name = "` %identifier `"; let scope = scopes.slice().reverse().find(scope => scope.nonStaticFuncs.has(name)); assert(scope); let func = scope.nonStaticFuncs.get(name); let funcPtr = b.addData(mkRef(func.lbl));`
+	`const loadName = "load"; let loadScope = scopes.slice().reverse().find(scope => scope.variables.has(loadName)); if(!loadScope) throw new Error("Directly calling dynamic functions require static functions 'load' and 'unload'"); let loadPtr = loadScope.variables.get(loadName).data;`
+	`const unloadName = "unload"; let unloadScope = scopes.slice().reverse().find(scope => scope.variables.has(unloadName)); if(!unloadScope) throw new Error("Directly calling dynamic functions require static functions 'load' and 'unload'"); let unloadPtr = unloadScope.variables.get(unloadName).data;`
+	`let negPtrTmp = b.tmp(); let negPtr = negPtrTmp.data; b.setZ(negPtr); b.subTo(loadPtr, negPtr);`
+	`/*the arg*/ { let currArgOff = 3n; let addrLbl1 = mkLabel("argaddr"), addrLbl2 = mkLabel("argaddr"), addrLbl3 = mkLabel("argaddr"); b.setZ(addrLbl1); b.setZ(addrLbl2); b.setZ(addrLbl3); b.add(mkLitRef(currArgOff), mkRef(negPtr), mkNxt()); b.subTo(negPtr, addrLbl1); b.subTo(negPtr, addrLbl2); b.subTo(negPtr, addrLbl3); b.add(mkLitRef(-currArgOff), mkRef(negPtr), mkNxt()); let retval = funcPtr; b.setZ(b.jmpTmp); b.subTo(retval, b.jmpTmp); b.add(addrLbl1, mkUninit(), addrLbl2, mkUninit(), mkNxt()); b.add(mkRef(b.jmpTmp), addrLbl3, mkUninit(), mkNxt()); }`
+	`let retLabel = mkLabel("funccallret"); let retLabelData = b.addData(mkRef(retLabel)); let retAddrSetLbl1 = mkLabel("funccall.rasl"), retAddrSetLbl2 = mkLabel("funccall.rasl"), retAddrSetLbl3 = mkLabel("funccall.rasl"); b.setZ(retAddrSetLbl1); b.setZ(retAddrSetLbl2); b.setZ(retAddrSetLbl3); b.add(mkLitRef(1n), mkRef(negPtr), mkNxt()); b.subTo(negPtr, retAddrSetLbl1); b.subTo(negPtr, retAddrSetLbl2); b.subTo(negPtr, retAddrSetLbl3); b.add(mkLitRef(-1n), mkRef(negPtr), mkNxt()); b.setZ(b.jmpTmp); b.subTo(retLabelData, b.jmpTmp); b.add(retAddrSetLbl1, mkUninit(), retAddrSetLbl2, mkUninit(), mkNxt()); b.add(mkRef(b.jmpTmp), retAddrSetLbl3, mkUninit(), mkNxt());`
+	`let jmpEntryGetLbl = mkLabel("funccallgetjmp"); let jmpEntryLbl = mkLabel("funccalljmp"); b.setZ(jmpEntryGetLbl); b.setZ(jmpEntryLbl); b.subTo(negPtr, jmpEntryGetLbl); b.setZ(b.jmpTmp); b.add(jmpEntryGetLbl, mkUninit(), mkRef(b.jmpTmp), mkNxt()); b.subTo(b.jmpTmp, jmpEntryLbl); b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), jmpEntryLbl, mkUninit()); b.add(retLabel); let getRetvalLbl = mkLabel("funccall.getretval"); b.setZ(getRetvalLbl); b.subTo(negPtr, getRetvalLbl); b.add(mkLitRef(-2n), mkRef(getRetvalLbl), mkNxt()); b.setZ(b.jmpTmp); b.add(getRetvalLbl, mkUninit(), mkRef(b.jmpTmp), mkNxt()); b.setZ(retval); b.subTo(b.jmpTmp, retval);`
+	`negPtrTmp.release(); let retvalBak = b.tmp(); b.copyTo(retval, retvalBak.data); ` _ function_call_by_pointer
+	`{ let negPtrTmp = b.tmp(); let negPtr = negPtrTmp.data; b.setZ(negPtr); b.subTo(unloadPtr, negPtr);`
+	`/*the arg*/ { let currArgOff = 3n; let addrLbl1 = mkLabel("argaddr"), addrLbl2 = mkLabel("argaddr"), addrLbl3 = mkLabel("argaddr"); b.setZ(addrLbl1); b.setZ(addrLbl2); b.setZ(addrLbl3); b.add(mkLitRef(currArgOff), mkRef(negPtr), mkNxt()); b.subTo(negPtr, addrLbl1); b.subTo(negPtr, addrLbl2); b.subTo(negPtr, addrLbl3); b.add(mkLitRef(-currArgOff), mkRef(negPtr), mkNxt()); let retval = retvalBak.data; b.setZ(b.jmpTmp); b.subTo(retval, b.jmpTmp); b.add(addrLbl1, mkUninit(), addrLbl2, mkUninit(), mkNxt()); b.add(mkRef(b.jmpTmp), addrLbl3, mkUninit(), mkNxt()); }`
+	`let retLabel = mkLabel("funccallret"); let retLabelData = b.addData(mkRef(retLabel)); let retAddrSetLbl1 = mkLabel("funccall.rasl"), retAddrSetLbl2 = mkLabel("funccall.rasl"), retAddrSetLbl3 = mkLabel("funccall.rasl"); b.setZ(retAddrSetLbl1); b.setZ(retAddrSetLbl2); b.setZ(retAddrSetLbl3); b.add(mkLitRef(1n), mkRef(negPtr), mkNxt()); b.subTo(negPtr, retAddrSetLbl1); b.subTo(negPtr, retAddrSetLbl2); b.subTo(negPtr, retAddrSetLbl3); b.add(mkLitRef(-1n), mkRef(negPtr), mkNxt()); b.setZ(b.jmpTmp); b.subTo(retLabelData, b.jmpTmp); b.add(retAddrSetLbl1, mkUninit(), retAddrSetLbl2, mkUninit(), mkNxt()); b.add(mkRef(b.jmpTmp), retAddrSetLbl3, mkUninit(), mkNxt());`
+	`let jmpEntryGetLbl = mkLabel("funccallgetjmp"); let jmpEntryLbl = mkLabel("funccalljmp"); b.setZ(jmpEntryGetLbl); b.setZ(jmpEntryLbl); b.subTo(negPtr, jmpEntryGetLbl); b.setZ(b.jmpTmp); b.add(jmpEntryGetLbl, mkUninit(), mkRef(b.jmpTmp), mkNxt()); b.subTo(b.jmpTmp, jmpEntryLbl); b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), jmpEntryLbl, mkUninit()); b.add(retLabel);`
+	`negPtrTmp.release(); retvalBak.release(); }}`
+inline_call =
+	`{ let name = "` %identifier `"; let scope = scopes.slice().reverse().find(scope => scope.nonStaticFuncs.has(name)); assert(scope); let func = scope.nonStaticFuncs.get(name);`
+	`let argTmps = func.argNames.map(argName => b.tmp()); let argData = argTmps.map(tmp => tmp.data); let currArgI = 0;` _ "(" [_ inline_call_arg {_ "," _ inline_call_arg}] _ ")"
+	`if(currArgI !== argData.length) throw new Error("Mismatched inline function arguments"); func.generate(b, scopes, argData, retval); argTmps.forEach(tmp => tmp.release()); }`
+inline_call_arg = `{ if(currArgI >= argData.length) throw new Error("Mismatched inline function arguments"); let retval = argData[currArgI]; ` expr ` currArgI++; }`
+
+value
+	= Integer( `b.add(mkRef(retval), mkRef(retval), mkNxt()); b.add(mkLitRef(-(` integer `)), mkRef(retval), mkNxt());` )
+	| "true_io_getch" idend `b.add(mkLiteral(-1n), mkRef(retval), mkNxt());`
+	| "program_start_addr" idend `b.copyTo(b.addData(mkRef(before_program_label)), retval);`
+	| "program_end_addr" idend `b.copyTo(b.addData(mkRef(after_program_label)), retval);`
+	| "true_io_getch" idend `b.add(mkLiteral(-1n), mkRef(retval), mkNxt());`
+	| "NULL" idend `b.setZ(retval);`
+	| TrueStaticIntsLiteral( `{ let origRetval = retval; let datas = []; ` "static_ints" idend _ "{" _ [`datas.push(` integer `);` _ {"," _ `datas.push(` integer `);` _}] "}" ` let lenLiteral = mkLiteral(BigInt(datas.length)); let lbl = mkLabel("staticintlist.lbl"); b.addData(lenLiteral, lbl, ...datas.map(num => mkLiteral(num))); let lblRef = b.addData(mkRef(lbl)); b.copyTo(lblRef, origRetval); }` )
+	| ArrayLiteral( `{ let origRetval = retval; let datas = []; ` "{" _ [`{ let retval = mkUninit("staticarrlit"); datas.push(retval); ` expr ` }` _ {"," _ `{ let retval = mkUninit("staticarrlit"); datas.push(retval); ` expr ` }` _}] "}" ` let lenLiteral = mkLiteral(BigInt(datas.length)); let lbl = mkLabel("staticarrlit"); b.addData(lenLiteral, lbl, ...datas); let lblRef = b.addData(mkRef(lbl)); b.copyTo(lblRef, origRetval); }` )
+	| Variable( `{ let name = "` %identifier `"; let scope = scopes.slice().reverse().find(scope => scope.variables.has(name)); if(!scope) throw new Error("Unknown variable: "+name); `
+					`b.add(mkRef(retval), mkRef(retval), mkNxt(), mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkNxt(), mkRef(scope.variables.get(name).data), mkRef(b.jmpTmp), mkNxt(), mkRef(b.jmpTmp), mkRef(retval), mkNxt()); }` )
+	| String( `{ let codePoints = [...(` string `)].map(ch => ch.codePointAt(0)); b.addData(mkLiteral(BigInt(codePoints.length))); /*str len before*/ let lbl = b.addData(mkLabel("stringliteral")); b.addData(...codePoints.map(v => mkLiteral(BigInt(v)))); let lblRef = b.addData(mkRef(lbl)); b.copyTo(lblRef, retval); }` )
+	| Char("'" !"'" !"\n" `{ let ch = "` char `".codePointAt(0); b.setZ(retval); b.add(mkLitRef(-BigInt(ch)), mkRef(retval), mkNxt()); }` "'")
+	| "(" _ expr _ ")"
 
 
-
-
-
-
-
+# LValues use retval for the address yielded
+lvalue
+	= Deref( "*" _ prefix_expr ) # The adress to use is the value of the expression
+	| Index( value {!(_ "[" _ expr _ "]" _ !access_expr_op) _ access_expr_op} _ "[" _ `{ let origRetval = retval; { let tmp = b.tmp(); let retval = tmp.data; ` expr ` b.addTo(retval, origRetval); tmp.release(); }}` _ "]" )
+	| Variable( `{ let name = "` %identifier `"; let scope = scopes.slice().reverse().find(scope => scope.variables.has(name)); if(!scope) throw new Error("Unknown variable: "+name); `
+					`let lbl = b.addData(mkLabel("lvaluevar")); b.addData(mkRef(scope.variables.get(name).data)); b.copyTo(lbl, retval); }` )
 
 
 PREPEND_CODE = `
 
+function assert(bool, msg = "Assertion failed") {
+	if(!bool) throw new Error(msg);
+}
+function assert_bigint(value) {
+	assert(typeof value === "bigint", "Value is not bigint");
+}
 
 let nextLabelId = 0;
 function mkLabel(debugName = "label") {
@@ -35,25 +204,359 @@ function mkLabel(debugName = "label") {
 	nextLabelId++;
 	return instr;
 }
-function mkLiteral(num) {
+function mkLiteral(num) { // Bigints are used in js
+	assert_bigint(num);
 	return { type: "literal", value: num, parentBlock: null };
 }
+function mkLitRef(num) {
+	assert_bigint(num);
+	return { type: "literal_ref", value: num, parentBlock: null };
+}
+function rewriteLitRefToRef(litRef, literal) {
+	Object.assign(litRef, { type: "ref", value: literal });
+}
+function mkRelative(numOffset) {
+	assert_bigint(numOffset);
+	return { type: "relative_ref", value: numOffset, parentBlock: null };
+}
+function mkUninit(debugName) {
+	return { type: "uninit", debugName: debugName ? "uninit_"+debugName : "uninit", parentBlock: null };
+}
+function mkRef(instr = null) {
+	return { type: "ref", value: instr, parentBlock: null };
+}
+function mkNxt() {
+	return mkRelative(1n);
+}
 
 
-function Block(deoffsetConstants = true) {
-	this.deoffsetConstants = deoffsetConstants;
-	this.instrs = [];
-
-	let self = this;
-	this.add = function(instr) {
-		instr.parentBlock = self;
-		this.instrs.push(instr);
+let tmpCurrI = 0;
+function Tmp(b) {
+	this.data = b.addData(mkUninit("tmp_"+tmpCurrI));
+	tmpCurrI++;
+	this.release = function() {
+		b._releaseTmp(this);
 	};
 }
+function Block(deoffsetConstants = true) {
+	this.type = "block";
+	this.parentBlock = null;
+	this.deoffsetConstants = deoffsetConstants; // for global block
+	this.instrs = [];
+	this.data = [];
+	this.true_header = []; // not deoffset and added at the start before deoffsetting, used for func args and stuff
+
+	this.beforeLbl = null;
+	this.afterLbl = null;
+
+	let self = this;
+	this.add = function(...instrs) {
+		for(let instr of instrs) {
+			instr.parentBlock = self;
+			this.instrs.push(instr);
+		}
+		if(instrs.length === 1) return instrs[0];
+	};
+	this.prepend = function(...instrs) {
+		for(let instr of instrs.slice().reverse()) {
+			instr.parentBlock = self;
+			this.instrs.unshift(instr);
+		}
+		if(instrs.length === 1) return instrs[0];
+	};
+	this.addData = function(...instrs) { // data is guaranteed to be added in order
+		for(let instr of instrs) {
+			this.data.push(instr);
+		}
+		if(instrs.length === 1) return instrs[0];
+	};
+
+	
+	this.jmpTmp = this.addData(mkUninit("jmpTmp"));
+	this.availableTemps = [[]];
+
+	this.tmp = function() {
+		if(this.availableTemps.at(-1).length > 0) {
+			return this.availableTemps.at(-1).pop();
+		} else {
+			return new Tmp(this);
+		}
+	};
+	this._releaseTmp = function(tmp) {
+		// TODO investigate if this can be uncommented
+		///this.availableTemps.at(-1).push(tmp);
+	};
+	this.pushTemps = function() { // allows functions to have separate temps since at the function, temps in the caller will be released
+		this.availableTemps.push([]);
+	};
+	this.popTemps = function() {
+		this.availableTemps.pop();
+	};
+
+
+	let b = this;
+	this.copyTo = function(dataA, dataB) {
+		let tmp = b.tmp();
+		b.add(mkRef(tmp.data), mkRef(tmp.data), mkNxt(), mkRef(dataB), mkRef(dataB), mkNxt());
+		b.add(mkRef(dataA), mkRef(tmp.data), mkNxt(), mkRef(tmp.data), mkRef(dataB), mkNxt());
+		tmp.release();
+	};
+	this.addTo = function(dataA, dataB) {
+		let tmp = b.tmp();
+		b.add(mkRef(tmp.data), mkRef(tmp.data), mkNxt());
+		b.add(mkRef(dataA), mkRef(tmp.data), mkNxt(), mkRef(tmp.data), mkRef(dataB), mkNxt());
+		tmp.release();
+	};
+	this.subTo = function(dataA, dataB) {
+		b.add(mkRef(dataA), mkRef(dataB), mkNxt());
+	};
+	this.setZ = function(dataA) {
+		b.add(mkRef(dataA), mkRef(dataA), mkNxt());
+	};
+}
+function Variable(name, instr) {
+	assert(name);
+	assert(instr);
+	this.name = name;
+	this.data = instr;
+}
+function InlineFunc() {
+	this.name = null;
+	this.argNames = [];
+	this.generate = null;
+}
+function DynamicFunc() {
+	this.name = null;
+	this.lbl = null;
+}
 function Scope() {
-	this.userLabels = new Map(); // label by name
+	this.variables = new Map(); // variable by name
+	this.nonStaticFuncs = new Map();
+	this.loopBreakLbl = null; // null if not a loop
+	this.loopContinueLbl = null;
+	this.funcRetvalData = null;
+	this.funcRetLbl = null;
+
+	this.makeVar = function(name, instr) {
+		let variable = new Variable(name, instr);
+		if(this.variables.has(name) || this.nonStaticFuncs.has(name)) throw new Error("Duplicate variable or function in same scope: "+name);
+		this.variables.set(name, variable);
+		return variable;
+	};
+	this.makeFunc = function(name, func) {
+		func.name = name;
+		if(this.variables.has(name) || this.nonStaticFuncs.has(name)) throw new Error("Duplicate variable or function in same scope: "+name);
+		this.nonStaticFuncs.set(name, func);
+		return func;
+	};
+}
+
+let before_program_label = mkLabel("after_gen_label"); // label that is appended to after generated stuff, this is to be used by malloc
+let after_program_label = mkLabel("after_gen_label"); // label that is appended to after generated stuff, this is to be used by malloc
+
+function malloc(b, retval, size) {
+	const tmps = []; const tmp = () => { let t = b.tmp(); tmps.push(t); return t.data };
+	let afterLbl = mkLabel("malloc.after"), sizeLeq0Lbl = mkLabel("malloc.sizeleq0");
+	b.add(mkLitRef(0n), mkRef(size), mkRef(sizeLeq0Lbl));
+	let origPtr = b.addData(mkRef(after_program_label));
+	let origNegSize = tmp(); b.setZ(origNegSize); b.subTo(size, origNegSize);
+	let negPtr = tmp(); b.setZ(negPtr); b.subTo(origPtr, negPtr);
+	let leqLbl = mkLabel("malloc.leq"), enoughSizeLbl = mkLabel("malloc.enough"), endOfMemLbl = mkLabel("malloc.endofmem");
+	// check
+	let checkLbl = b.add(mkLabel("malloc.check"));
+	let negData = tmp(); let dataGetLbl = mkLabel(); b.setZ(negData); b.setZ(dataGetLbl); b.subTo(negPtr, dataGetLbl); b.add(dataGetLbl, mkUninit(), mkRef(negData), mkNxt());
+	let data = tmp(); b.setZ(data); b.subTo(negData, data);
+	b.add(mkLitRef(0n), mkRef(data), mkRef(leqLbl));
+	// data > 0 (mem is used)
+	b.subTo(data, negPtr); b.add(mkLitRef(1n), mkRef(negPtr), mkRef(checkLbl));
+	// data <= 0
+	b.add(leqLbl);
+	// check if size <= -data-1 (if size+data+1 <= 0)
+	let sizeCheckTmp = tmp(); b.setZ(sizeCheckTmp);
+	b.subTo(origNegSize, sizeCheckTmp); b.subTo(negData, sizeCheckTmp); b.add(mkLitRef(-1n), mkRef(sizeCheckTmp), mkRef(enoughSizeLbl));
+	// not enough size or perhaps is at end of memory
+	b.add(mkLitRef(0n), mkRef(negData), mkRef(endOfMemLbl)); // check if end of memory
+	// not enough size
+	b.subTo(negData, negPtr); b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(checkLbl));
+	// end of mem
+	b.add(endOfMemLbl);
+	{
+		let a = mkLabel("a");
+		b.setZ(a); b.subTo(negPtr, a);
+		b.add(mkRef(origNegSize), a, mkUninit(), mkNxt());
+		b.add(mkLitRef(1n), mkRef(negPtr), mkNxt());
+		b.setZ(retval); b.subTo(negPtr, retval); b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(afterLbl));
+	}
+	// size <= 0
+	b.add(sizeLeq0Lbl);
+	let zeroPtr = b.addData(mkLitRef(0n)); b.copyTo(zeroPtr, retval); b.add(mkLitRef(-1n), mkRef(retval), mkNxt()); b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(afterLbl));
+	// enough size
+	b.add(enoughSizeLbl);
+	{ // set *ptr=len, set retval
+		let [a, bb, c] = [mkLabel(), mkLabel(), mkLabel()];
+		b.setZ(a); b.add(mkRef(negPtr), mkRef(a), mkNxt()); b.setZ(bb); b.add(mkRef(negPtr), mkRef(bb), mkNxt()); b.setZ(c); b.add(mkRef(negPtr), mkRef(c), mkNxt());
+		b.add(a, mkUninit(), bb, mkUninit(), mkNxt()); b.add(mkRef(origNegSize), c, mkUninit(), mkNxt());
+		b.setZ(retval); b.subTo(negPtr, retval); b.add(mkLitRef(-1n), mkRef(retval), mkNxt());
+	}
+	{ // restructure remaining data
+		b.add(mkLitRef(1n), mkRef(negPtr), mkNxt()); b.subTo(size, negPtr);
+		let remaining = tmp(); // remaining # of ints = -data-1 - length
+		b.setZ(remaining); b.subTo(data, remaining); b.add(mkLitRef(1n), mkRef(remaining), mkNxt()); b.subTo(size, remaining);
+		b.add(mkLitRef(0n), mkRef(remaining), mkRef(afterLbl)); // don't do anything if remaining == 0
+		// otherwise set (new) negPtr to -(remaining+1-1) = -remaining
+		let [a, bb, c] = [mkLabel(), mkLabel(), mkLabel()];
+		b.setZ(a); b.add(mkRef(negPtr), mkRef(a), mkNxt()); b.setZ(bb); b.add(mkRef(negPtr), mkRef(bb), mkNxt()); b.setZ(c); b.add(mkRef(negPtr), mkRef(c), mkNxt());
+		b.add(a, mkUninit(), bb, mkUninit(), mkNxt()); b.add(mkRef(remaining), c, mkUninit(), mkNxt());
+	}
+	// after
+	b.add(afterLbl);
+	tmps.forEach(t => t.release());
+}
+function free(b, ptr) {
+	const tmps = []; const tmp = () => { let t = b.tmp(); tmps.push(t); return t.data };
+	let afterLbl = mkLabel("malloc.after");
+	b.add(mkLitRef(1n), mkRef(ptr), mkNxt());
+	let negPtr = tmp(); b.setZ(negPtr); b.subTo(ptr, negPtr);
+	let len = tmp(); let negLen = tmp(); b.setZ(len); b.setZ(negLen); let getLenLbl = mkLabel("free.getlen"); b.setZ(getLenLbl); b.subTo(negPtr, getLenLbl); b.add(getLenLbl, mkUninit(), mkRef(negLen), mkNxt()); b.subTo(negLen, len);
+	// if len <= 0, goto afterLbl since points to shared when len==0 when malloc(size=0) used
+	b.add(mkLitRef(0n), mkRef(len), mkRef(afterLbl));
+	// set len to negative
+	{
+		let subtractBy = tmp(); // len+len+1
+		b.setZ(subtractBy); b.subTo(negLen, subtractBy); b.subTo(negLen, subtractBy); b.add(mkLitRef(-1n), mkRef(subtractBy), mkNxt());
+		let a = mkLabel();
+		b.setZ(a); b.subTo(negPtr, a); b.add(mkRef(subtractBy), a, mkUninit(), mkNxt());
+	}
+	// TODO merge possibly next and possibly previous free areas
+	// after
+	b.add(afterLbl);
+	tmps.forEach(t => t.release());
 }
 
 let b = new Block(false); // global block
+b.beforeLbl = before_program_label;
+b.afterLbl = after_program_label;
 let scopes = [new Scope()];
+`
+
+APPEND_CODE = `
+
+// exit
+b.add(mkLitRef(0n), mkLitRef(0n), mkLiteral(-1n));
+
+
+const json_debug_str_used = new Set();
+const json_debug_str = JSON.stringify(b, (key, value) => typeof value === "bigint" ? ""+value : typeof value === "object" && value !== null ? (json_debug_str_used.has(value) ? "<cyclic value>" : (json_debug_str_used.add(value), value)) : value, 2);
+//console.log("resulting structure:", json_debug_str);
+console.log("structure", b);
+
+
+// Now we assemble the structure
+
+// Resolve literal refs to refs(literal) and deoffset constants and data
+function prepare_block(b) {
+	const blockEntryLabel = b.prepend(mkLabel("block_entrypoint"));
+
+	// prepend data in order
+	for(let instr of b.data.slice().reverse()) {
+		instr.parentBlock = b;
+		b.prepend(instr);
+	}
+	b.data = [];
+
+	// resolve litrefs
+	let literals_used = new Map();
+
+	for(let instr of b.instrs) {
+		assert(instr.type, "instr does not have .type, instr is not an instr");
+		if(instr.type === "ref") assert(instr.value.type, "ref value does not have .type, ref value is not an instr");
+		if(instr.type === "block") {
+			prepare_block(instr);
+		} else if(instr.type === "literal_ref") {
+			let literal;
+			if(literals_used.has(instr.value)) literal = literals_used.get(instr.value);
+			else {
+				literal = mkLiteral(instr.value);
+				literals_used.set(instr.value, literal);
+			}
+			rewriteLitRefToRef(instr, literal);
+		}
+	}
+	for(let literal of literals_used.values()) { // prepend literals
+		b.prepend(literal);
+	}
+	
+	b.prepend(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(blockEntryLabel));
+	b.true_header.forEach(instr => assert(instr.type !== "literal" && instr.type !== "literal_ref"));
+	if(b.deoffsetConstants) {
+		let instrsWithinMe = [];
+		function walk(b) {
+			for(let instr of b.instrs) {
+				if(instr.type === "block") walk(instr);
+				else instrsWithinMe.push(instr);
+			}
+		}
+		instrsWithinMe.unshift(...b.true_header);
+		walk(b);
+		let deoffsetVal = mkLiteral(0n);
+		let deoffset = [mkRelative(3n), mkRelative(2n), mkRelative(3n), mkUninit(), deoffsetVal];
+		for(let instr of instrsWithinMe) {
+			if(instr.type === "literal" || (instr.type === "ref" && !instrsWithinMe.includes(instr.value))) {
+				assert(!b.true_header.includes(instr), "true_header assertion failed");
+				deoffset.push(mkRef(deoffsetVal), mkRef(instr), mkNxt());
+			}
+		}
+		b.prepend(...deoffset);
+	}
+	// literals and external refs wont be deoffset from here on
+
+	b.prepend(...b.true_header);
+
+	if(b.beforeLbl) b.prepend(b.beforeLbl); // before and after labels
+	if(b.afterLbl) b.add(b.afterLbl);
+}
+prepare_block(b);
+
+// Calculate addresses
+let curr_address = 0n;
+function calc_addresses_block(b) {
+
+	for(let instr of b.instrs) {
+		instr.address = curr_address;
+		if(instr.type === "block") {
+			calc_addresses_block(instr);
+		} else if(instr.type !== "label") curr_address += 1n;
+	}
+
+	return curr_address;
+}
+calc_addresses_block(b);
+
+// Generate subleq
+
+function gen_subleq_block(b) {
+	assert(b.data.length === 0);
+	const subleq = [];
+	
+	for(let instr of b.instrs) {
+		if(instr.type === "label") ; //pass
+		else if(instr.type === "literal") subleq.push(instr.value);
+		else if(instr.type === "literal_ref") throw new Error("literal_ref present in gen_subleq_block");
+		else if(instr.type === "relative_ref") subleq.push(instr.address + instr.value);
+		else if(instr.type === "uninit") subleq.push(69n);
+		else if(instr.type === "ref") {
+			if(instr.value.address == null) {
+				console.log("ref pointing to instr with uncalculated address", instr, instr.value);
+				throw new Error("ref pointing to instr with uncalculated address");
+			}
+			subleq.push(instr.value.address);
+		} else if(instr.type === "block") subleq.push(...gen_subleq_block(instr));
+	}
+
+	return subleq;
+}
+const subleq = gen_subleq_block(b);
+
+console.log("subleq", subleq);
+return subleq.map(v => v.toString()).join(" ");
 `

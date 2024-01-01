@@ -1,0 +1,21 @@
+void print(char* str) {
+    for(int i=0; i<len(str); i++)
+        true_io_putch str[i];
+    true_io_putch '\n';
+}
+void sum(int a, int b) {
+    print("in function");
+    void subFunc(char* str) {
+        print("in function within function");
+        return str;
+    }
+    print(subFunc("hi"));
+    return a + b;
+}
+
+for(int i=0; i<2; i++) {
+    int res = sum(2, 3);
+    print("result:");
+    true_io_putch '0'+res;
+    true_io_putch '\n';
+}

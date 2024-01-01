@@ -14,6 +14,8 @@ function assert(bool, msg) {
 {
     const mainCodeArea = document.querySelector("#main-code-area");
     const mainConsole = document.querySelector("#main-console-area");
+
+    mainConsole.useNullAsInputSep = true; // TODO make configurable?
     
     const defaultRuntimeObj = {
         write: (...args) => mainConsole.write(...args),

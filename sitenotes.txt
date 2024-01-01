@@ -1,3 +1,7 @@
 for libs like p5js, should use cdn
 for segoe ui good support, use: font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+use <!DOCTYPE html> <!-- by VilgotanL -->
+and <html lang="en">
 (todo update all pages?)
+
+98% is good vs19 zoom

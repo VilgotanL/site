@@ -1,11 +1,16 @@
 codeArea.highlightCallback = function(code, { color, background }) {
-    const keywords = ["int", "void", "inline", "static", "dynamic"];
+    const keywords = [];
+    keywords.push("int", "char", "string", "void", "bool", "const", "mallocated");
+    keywords.push("inline", "dynamic", "static");
+    keywords.push("while", "for", "break", "continue", "return", "if", "else", "true_io_putch", "jmp", "asm");
+    keywords.push("len", "true_io_getch", "true_malloc", "true_free", "program_start_addr", "program_end_addr", "dynf_ptr", "NULL", "static_ints");
     const identifierChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789";
     const commentColor = "#009900";
     const keywordColor = "blue";
     const identifierColor = "black";
-    const numberColor = "dodgerblue";
-    const stringColor = "darkgreen";
+    const numberColor = "darkgreen";
+    const stringColor = "green";
+    const charColor = "#006600";
     const operatorColor = "#555555";
 
     for(let i=0; i<code.length;) {
@@ -46,7 +51,7 @@ codeArea.highlightCallback = function(code, { color, background }) {
                     break;
                 }
             }
-            color(start, i, stringColor);
+            color(start, i, code[start] === '"' ? stringColor : charColor);
         } else {
             color(i, i+1, operatorColor);
             i++;

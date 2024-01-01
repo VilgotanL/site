@@ -68,6 +68,9 @@
             const downloadBtn = document.querySelector("#download-btn");
 
 
+            const MIN_FRAME_LENGTH = 7; // hundredths of a second
+
+
             function updateCanvasSize(width, height) {
                 const aspectRatio = width/height;
                 const visHeight = Math.min(canvasDiv.clientHeight, canvasDiv.clientWidth/aspectRatio);
@@ -90,12 +93,8 @@
             const TEXT_PART = 0.12; // Height part of result image that text should take up
 
 
-            function floydSteinbergDither(pixels, width, height) {
+            function floydSteinbergDither(pixels, width, height, closest) {
                 let error = Array(pixels.length).fill(0);
-
-                function closest(r, g, b) {
-                    return [Math.round(r/255*7) * 255 / 7, Math.round(g/255*7) * 255 / 7, Math.round(b/255*3) * 255 / 3];
-                }
 
                 for(let y=0; y<height; y++) {
                     for(let x=0; x<width; x++) {
@@ -134,6 +133,25 @@
                         }
                     }
                 }
+            }
+            function noDither(pixels, width, height, closest) {
+                for(let i=0; i<pixels.length; i+=4) {
+                    let [r, g, b] = closest(pixels[i], pixels[i+1], pixels[i+2]);
+                    pixels[i] = r;
+                    pixels[i+1] = g;
+                    pixels[i+2] = b;
+                }
+            }
+
+            function getColorsSortedByFrequency(frames) {
+                let freq = new Map();
+                for(let pixels of frames) {
+                    for(let i=0; i<pixels.length; i+=4) {
+                        let color = pixels[i] << 16 | pixels[i+1] << 8 | pixels[i+2];
+                        freq.set(color, (freq.get(color) ?? 0) + 1);
+                    }
+                }
+                return Array.from(freq.keys()).sort((keya, keyb) => freq.get(keyb)-freq.get(keya));
             }
 
             async function updateGif() {
@@ -194,20 +212,55 @@
                     ctx.font = `normal ${nextFontSize}px Impact`;
                     nextFontSize--;
                 }
-                const palette = Array(256);
+
+                const palette = Array(256).fill(0);
+                let TRANSPARENT_INDEX = null;
+                let colorsByFreq = getColorsSortedByFrequency(decodedFrames);
                 for(let i=0; i<256; i++) {
+                    if(i & 0b00100000) {
+                        if(TRANSPARENT_INDEX === null) TRANSPARENT_INDEX = i;
+                        else if(colorsByFreq.length > 0) {
+                            palette[i] = colorsByFreq.shift();
+                        }
+                        continue;
+                    }
                     const r = Math.floor(((i & 0b00000111)) / 7 * 255);
-                    const g = Math.floor(((i & 0b00111000) >> 3) / 7 * 255);
+                    const g = Math.floor(((i & 0b00011000) >> 3) / 3 * 255);
                     const b = Math.floor(((i & 0b11000000) >> 6) / 3 * 255);
                     palette[i] = (r << 16) + (g << 8) + b;
+                }
+                function closest(r, g, b) { // non-transparent colors
+                    let color = palette[closest_to_index(r, g, b, 255)];
+                    return [(color & 0xff0000) >> 16, (color & 0xff00) >> 8, color & 0xff];
+                }
+                let index_by_color_hashmap = new Map();
+                function closest_to_index(r, g, b, a) {
+                    if(a === 0) return TRANSPARENT_INDEX;
+                    if(index_by_color_hashmap.has(r << 16 | g << 8 | b)) return index_by_color_hashmap.get(r << 16 | g << 8 | b);
+                    let index = 0;
+                    let distSq = Infinity;
+                    for(let i=0; i<palette.length; i++) {
+                        if(i === TRANSPARENT_INDEX) continue;
+                        let r2 = (palette[i] & 0xff0000) >> 16;
+                        let g2 = (palette[i] & 0xff00) >> 8;
+                        let b2 = palette[i] & 0xff;
+                        let distSq2 = (r-r2)**2 + (g-g2)**2 + (b-b2)**2;
+                        if(distSq2 < distSq) {
+                            index = i;
+                            distSq = distSq2;
+                        }
+                    }
+                    index_by_color_hashmap.set(r << 16 | g << 8 | b, index);
+                    return index;
                 }
 
                 let currTimeSeconds = 0;
                 let prevTotalDelay = 0;
+                let lastGeneratedFrame = null;
                 for(let frameI=0; frameI<gifReader.numFrames(); frameI++) {
                     let newDelay = Math.ceil(currTimeSeconds/100-prevTotalDelay);
                     if(newDelay < 0) newDelay = 0;
-                    if(newDelay > 0 && newDelay < 3) newDelay = 3; // otherwise browsers render it slowly it seems
+                    if(newDelay > 0 && newDelay < MIN_FRAME_LENGTH) newDelay = MIN_FRAME_LENGTH; // otherwise browsers render it slowly it seems
                     prevTotalDelay += newDelay;
                     currTimeSeconds += gifReader.frameInfo(frameI).delay*100/option_speed;
                     if(newDelay <= 0) continue;
@@ -220,20 +273,35 @@
                     ctx.fillText(textInput.value, width/2, height*TEXT_PART/2);
                     let indexed_pixels = Array(width*height).fill(0);
                     const imgData = ctx.getImageData(0, 0, width, height);
-                    floydSteinbergDither(imgData.data, width, height); // dither
+                    floydSteinbergDither(imgData.data, width, height, closest); // dithering
                     ctx.putImageData(imgData, 0, 0);
+
+                    let nextLastGeneratedFrame = new ImageData(new Uint8ClampedArray(imgData.data), width); // we need the lastgeneratedframe to be without transparency
+                    if(lastGeneratedFrame) {
+                        for(let i=0; i<imgData.data.length; i+=4) { // make exact same pixels transparent
+                            if(imgData.data[i] === lastGeneratedFrame.data[i] && imgData.data[i+1] === lastGeneratedFrame.data[i+1] && imgData.data[i+2] === lastGeneratedFrame.data[i+2]) {
+                                imgData.data[i] = 0;
+                                imgData.data[i+1] = 0;
+                                imgData.data[i+2] = 0;
+                                imgData.data[i+3] = 0;
+                            }
+                        }
+                    }
+                    lastGeneratedFrame = nextLastGeneratedFrame;
                     for(let x=0; x<width; x++) {
                         for(let y=0; y<height; y++) {
                             let r = imgData.data[4*(y*width+x)];
                             let g = imgData.data[4*(y*width+x)+1];
                             let b = imgData.data[4*(y*width+x)+2];
-                            indexed_pixels[y*width+x] = (Math.round(r/255*7) & 0b00000111) + ((Math.round(g/255*7) << 3) & 0b00111000) + ((Math.round(b/255*3) << 6) & 0b11000000);
+                            let a = imgData.data[4*(y*width+x)+3];
+                            indexed_pixels[y*width+x] = closest_to_index(r, g, b, a);
                         }
                     }
                     
                     gifWriter.addFrame(0, 0, width, height, indexed_pixels, {
                         delay: newDelay,
                         palette,
+                        transparent: TRANSPARENT_INDEX,
                     });
                     await new Promise(res => requestAnimationFrame(res));
                 }

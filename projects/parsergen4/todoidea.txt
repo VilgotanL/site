@@ -1,0 +1,3 @@
+expression that gives the current "line:col" in string format for runtime error printing
+also expression for all the code being parsed, \u{...} js escape for some chars
+pointy bracket names like <;> that can use spaces and other chars

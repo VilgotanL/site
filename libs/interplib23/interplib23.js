@@ -27,6 +27,9 @@ interplib23_stylesheet.replaceSync(`
         --inset: outset;
         --outset: inset;
     }
+    .dark-theme .code-area-pre {
+        filter: hue-rotate(-30deg);
+    }
     button {
         border: 1px var(--outset) gray;
         background: #e8e8e8;
@@ -72,7 +75,9 @@ interplib23_stylesheet.replaceSync(`
         min-height: 40vh;
     }
     console-area {
+        min-height: 15vh;
         height: 20vh;
+        resize: vertical;
         border: 2px var(--inset);
     }
     
@@ -113,6 +118,7 @@ interplib23_stylesheet.replaceSync(`
     }
     .code-area-pre {
         user-select: none;
+        pointer-events: none;
     }
     .code-area-textarea, .code-area-pre, .code-area-pre *, .code-area-line-nums, .code-area-line-nums * {
         font-family: monospace;
@@ -310,7 +316,8 @@ class CodeArea extends HTMLElement {
             if(e.key === "Tab") {
                 e.preventDefault();
                 let indexInLine = textarea.value.slice(0, textarea.selectionStart).split("\n").at(-1).length;
-                textarea.setRangeText(" ".repeat(4 - (indexInLine % 4)), textarea.selectionStart, textarea.selectionEnd, "end");
+                //textarea.setRangeText(" ".repeat(4 - (indexInLine % 4)), textarea.selectionStart, textarea.selectionEnd, "end"); // does not support undo
+                document.execCommand("insertText", false, " ".repeat(4 - (indexInLine % 4))); // supports undo
                 updatePre();
             }
         });
@@ -369,6 +376,8 @@ class ConsoleArea extends HTMLElement {
         this.outer.appendChild(this.pre);
         this.appendChild(this.outer);
 
+        this.useNullAsInputSep ??= false;
+
         const consoleTextarea = this.textarea, consolePre = this.pre;
             
         let consoleCursorResetTime = Date.now();
@@ -377,7 +386,9 @@ class ConsoleArea extends HTMLElement {
         consoleTextarea.value = consoleCurrOutput+consoleCurrInput;
         let consoleInputCallback = null; // non-null when waiting for input
 
+        let self = this;
         function updatePre() {
+            const wasScrolledBottom = Math.ceil(self.scrollTop) >= Math.floor(self.scrollHeight) - Math.ceil(self.clientHeight);
             const cursorVisible = document.activeElement === consoleTextarea &&
                 consoleTextarea.selectionStart === consoleTextarea.selectionEnd &&
                 (Date.now()-consoleCursorResetTime)%1000 < 500;
@@ -394,6 +405,7 @@ class ConsoleArea extends HTMLElement {
             } else {
                 consolePre.innerText = consoleTextarea.value + " ";
             }
+            if(wasScrolledBottom) self.scrollTop = self.scrollHeight;
         }
         setInterval(updatePre, 10);
         consoleTextarea.addEventListener("input", (e) => {
@@ -404,7 +416,7 @@ class ConsoleArea extends HTMLElement {
                 consoleTextarea.value = consoleCurrOutput + consoleCurrInput;
                 if(e.inputType === "insertLineBreak" && consoleTextarea.selectionStart === consoleTextarea.value.length) {
                     let input = consoleCurrInput;
-                    if(true /* TODO: Make setting called Single input with null appended */) {
+                    if(this.useNullAsInputSep) {
                         input = input.slice(0, -1)+"\0";
                     }
                     consoleCurrOutput += consoleCurrInput;
@@ -447,6 +459,7 @@ class ConsoleArea extends HTMLElement {
         this._input = async function() {
             if(consoleInputCallback) throw new Error("Interplib23 Console is already waiting for input!");
             return new Promise(async (res, rej) => {
+                this.scrollTop = this.scrollHeight;
                 consoleInputCallback = (input) => {
                     res(input);
                 };
@@ -487,9 +500,9 @@ class ConsoleArea extends HTMLElement {
     }
     async getch() {
         if(this._getch_buffer.length === 0) this._getch_buffer = await this._input();
-        let ch = this._getch_buffer[0] ?? "\0";
-        this._getch_buffer = this._getch_buffer.slice(1);
-        return ch.charCodeAt(0);
+        let ch = String.fromCodePoint(this._getch_buffer.codePointAt(0)) ?? "\0";
+        this._getch_buffer = this._getch_buffer.slice(ch.length);
+        return ch.codePointAt(0);
     }
     reset_input() {
         this._resetInput();

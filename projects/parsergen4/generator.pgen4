@@ -91,7 +91,7 @@ PREPEND_CODE = `// Generated
 
 
 globalThis.parse = parse;
-function parse(code, { start: startDefName = "main", filename: filename = null, custom_defs = null } = {}) {
+function parse(code, { start: startDefName = "main", filename: filename = null, custom_defs = {} } = {}) {
 	
 	const defs = {};
 	const visualNames = {};
@@ -136,11 +136,13 @@ function parse(code, { start: startDefName = "main", filename: filename = null, 
 		
 		if(!Object.hasOwn(memoized, name)) memoized[name] = new Map();
 		if(!memoized[name].has(start)) {
-			if(Object.hasOwn(defs, name)) memoized[name].set(start, defs[name](start));
-			else if(Object.hasOwn(custom_defs, name)) memoized[name].set(start, custom_defs[name]({ defs, exprs, code, match, fail }, start));
+			if(Object.hasOwn(defs, name)) memoized[name].set(start, { result: defs[name](start), furthest: getFurthestBackup() });
+			else if(Object.hasOwn(custom_defs, name)) memoized[name].set(start, { result: custom_defs[name]({ defs, exprs, code, match, fail }, start), furthest: getFurthestBackup() });
 			else throw new Error("Unknown definition: " + name);
 		}
-		let res = memoized[name].get(start);
+		let { result: res, furthest: furthestBackup } = memoized[name].get(start);
+
+		if(furthestBackup.pos >= furthest.pos) furthest = furthestBackup;
 		
 		if(Object.hasOwn(visualNames, name)) last.entered = prevEntered;
 		if(!res.matched) return fail();

@@ -1,0 +1,1 @@
+sh could input more lines when needed and treat inp as single script so you can use multiline stmts and also use lbls and also use cat script > sh

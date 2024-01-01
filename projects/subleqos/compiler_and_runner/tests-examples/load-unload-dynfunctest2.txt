@@ -1,0 +1,44 @@
+
+void* load(void* dynf) {
+    void *p = true_malloc(len(dynf));
+    
+    int asmLoopVar = len(dynf)+1;
+    int addBy = p-dynf;
+    int negPtr = -p; int negOrig = -dynf;
+    asm {
+        p1 p1 ?+1 p2 p2 ?+1 p3 p3 ?+1 pOrig pOrig ?+1
+        negPtr p1 ?+1 negPtr p2 ?+1 negPtr p3 ?+1 negOrig pOrig ?+1
+        check:
+        @1 asmLoopVar after
+        p1:? p2:? ?+1
+        val val ?+1
+        pOrig:? val ?+1
+        addBy val ?+1
+        val p3:? ?+1
+        @-1 p1 ?+1 @-1 p2 ?+1 @-1 p3 ?+1 @-1 pOrig ?+1
+        @0 @0 check
+        val:?
+        after:
+    }
+    return p;
+}
+void* unload(void* p) {
+    true_free(p);
+}
+
+dynamic int add(int a, int b) {
+    int res = a + b;
+    return res;
+}
+void* func = load(dynf_ptr(add));
+true_io_putch '0'+func(2, 3);
+
+dynamic int factorial(int n) {
+    if(n <= 1) return 1;
+    true_io_putch 'F';
+    int factPrev = factorial(n-1);
+    int res = 0;
+    for(int i=0; i<n; i++) res += factPrev;
+    return res;
+}
+true_io_putch '0'+factorial(3);

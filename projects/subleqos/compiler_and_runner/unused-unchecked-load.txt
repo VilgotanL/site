@@ -1,0 +1,29 @@
+function load(b, retval, ptr) {
+	const tmps = []; const tmp = () => { let t = b.tmp(); tmps.push(t); return t.data };
+	let negPtr = tmp(); b.setZ(negPtr); b.subTo(ptr, negPtr);
+	let negSize = tmp(); b.setZ(negSize); let getSizeLbl = mkLabel("load.getsize"); b.setZ(getSizeLbl); b.subTo(negPtr, getSizeLbl); b.add(mkLitRef(1n), mkRef(getSizeLbl), mkNxt()); b.add(getSizeLbl, mkUninit(), mkRef(negSize), mkNxt());
+	let size = tmp(); b.setZ(size); b.subTo(negSize, size);
+	malloc(b, retval, size);
+	let addBy = tmp(); // the difference = newPtr-oldPtr
+	b.copyTo(retval, addBy); b.subTo(ptr, addBy);
+	// init ptrs
+	let ptr1 = mkLabel("load.p1"), ptr2 = mkLabel("load.p2"), ptr3 = mkLabel("load.p3"), ptrOrig = mkLabel("load.ptrOrig");
+	b.setZ(ptr1); b.setZ(ptr2); b.setZ(ptr3); b.setZ(ptrOrig); b.subTo(negPtr, ptr1); b.subTo(negPtr, ptr2); b.subTo(negPtr, ptr3); b.copyTo(retval, ptrOrig);
+	// now do the copy
+	size = tmp(); b.setZ(size); b.subTo(negSize, size); // in case malloc destroys the value at size
+	b.add(mkLitRef(-1n), mkRef(size), mkNxt());
+	let afterLbl = mkLabel("load.after");
+	let checkLbl = b.add(mkLabel("load.check"));
+	b.add(mkLitRef(1n), mkRef(size), mkRef(afterLbl));
+	// copy
+	b.add(ptr1, mkUninit(), ptr2, mkUninit(), mkNxt());
+	let val = tmp(); b.setZ(val);
+	b.add(ptrOrig, mkUninit(), mkRef(val), mkNxt());
+	b.subTo(addBy, val);
+	b.add(mkRef(val), ptr3, mkUninit(), mkNxt());
+	b.add(mkLitRef(-1n), mkRef(ptr1), mkNxt(), mkLitRef(-1n), mkRef(ptr2), mkNxt(), mkLitRef(-1n), mkRef(ptr3), mkNxt(), mkLitRef(-1n), mkRef(ptrOrig), mkNxt());
+	b.add(mkRef(b.jmpTmp), mkRef(b.jmpTmp), mkRef(checkLbl));
+
+	b.add(afterLbl);
+	tmps.forEach(t => t.release());
+}
