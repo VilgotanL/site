@@ -117,6 +117,13 @@ static int* clone(const int* p) {
     memcopy(p, len(p), p2);
     return p2;
 }
+static void appendint(int** ptrToVar, void value) {
+    int* newArr = malloc(len(*ptrToVar)+1);
+    memcopy(*ptrToVar, len(*ptrToVar), newArr);
+    newArr[len(*ptrToVar)] = value;
+    free(*ptrToVar);
+    *ptrToVar = newArr;
+}
 
 inline void _assert_mallocd_is_zerolen(const int* p) { // ASSUMPTIOUS
     if(malloc(0) >= program_end_addr) BLUESCREEN("_assert_mallocd_is_zerolen assumption broken");
@@ -187,28 +194,6 @@ static void free_stream(int* stream) { // frees the data too
         free(p);
         p = nextP;
     }
-}
-
-
-
-// === ENV TABLE ===
-// Entry types:
-// 0 - Mallocd String
-// 1 - Number
-// 2 - Const Function
-int* global_envtable = NULL;
-static int* new_envtable() {
-    int* t = malloc(2);
-    t[0] = NULL; // Parent
-    t[1] = NULL; // Linked list of cells with { mallocdKey, entryType, value, next }
-}
-static int* free_envtable(int* t) {
-    // TODO
-    // TODO redirect children to parent
-}
-
-static void env_init_global() {
-    // TODO
 }
 
 
@@ -331,6 +316,92 @@ static void fs_init() {
 
 
 
+// TODO make this more attached to procs?
+// === ENV TABLE ===
+// Entry types:
+// 0 - Mallocd String
+// 1 - Number
+// 2 - Const Function
+int* global_envtable = NULL;
+static int* new_envtable() {
+    int* t = malloc(2);
+    t[0] = NULL; // Parent
+    t[1] = NULL; // Linked list of cells with { mallocdKey, entryType, value, next }
+    return t;
+}
+static void envtable_set(int* t, const char* key, int type, void value) {
+    assert_mallocd(t, "envtableset");
+    int* p = (t+1);
+    while(*p && !streq((*p)[0], key)) {
+        p = (*p)+3;
+    }
+    if(!*p) *p = malloc(4);
+    int cell = *p;
+    cell[0] = clone(key);
+    cell[1] = type;
+    cell[2] = value;
+    cell[3] = NULL; // next
+}
+static void envtable_get(int* table, const char* key) { // returns ptr to cell or NULL
+    assert_mallocd(table, "envtableget");
+    int* t = table;
+    while(t) { // TODO test parent walking mechanism
+        int* cell = t[1];
+        while(cell) {
+            if(streq(cell[0], key)) return cell;
+            cell = cell[3];
+        }
+        t = t[0];
+    }
+    return NULL;
+}
+static void _envtable_free_cell(int* cell) {
+    assert_mallocd(cell, "_envtablefreecell");
+    free(cell[0]);
+    if(cell[1] == 0) { // Malloc'd string
+        free(cell[2]);
+    } else if(cell[1] == 1 || cell[1] == 2) {
+        //pass
+    } else BLUESCREEN("_envtable_free_cell: unknown/unimplemented cell type");
+    free(cell);
+}
+static bool envtable_remove(int* t, const char* key) { // removes key if exists and returns if it existed
+    assert_mallocd(t, "envtableremove");
+    int* addr = (t+1);
+    while(*addr) {
+        if(streq((*addr)[0], key)) {
+            int* cell = *addr;
+            *addr = cell[3];
+            // clean up the cell
+            _envtable_free_cell(cell);
+            return 1;
+        }
+        addr = (*addr)+3;
+    }
+    return 0;
+}
+static void free_envtable(int* t) {
+    assert_mallocd(t, "freeenvtable");
+    // TODO
+    // TODO redirect children to parent
+    BLUESCREEN("TODO");
+}
+
+static void env_init_global() {
+    global_envtable = new_envtable();
+    
+    envtable_set(global_envtable, "OS_NAME", 0, clone(OS_NAME));
+    envtable_set(global_envtable, "OS_VERSION", 0, clone(OS_VERSION));
+    envtable_set(global_envtable, "CWD", 0, "/");
+    envtable_set(global_envtable, "numtest", 1, 1234);
+    static void f() {
+        //pass
+    }
+    envtable_set(global_envtable, "functest", 2, f);
+}
+
+
+
 // === PROCESSES ===
 
 int* processes = NULL; // linked list
@@ -416,8 +487,10 @@ dynamic void spawnShell(int* proc) { // the process will be the shell
     startLbl:
     int* stdIn = proc[3];
     int* stdOut = proc[4];
+    int* env = proc[8];
     if(!stdIn) BLUESCREEN("Shell requires stdin");
     if(!stdOut) BLUESCREEN("Shell requires stdout");
+    if(!env) BLUESCREEN("Shell requires env table");
     int exitCode = 0; // code the shell will exit with
     
     // getch
@@ -516,13 +589,38 @@ dynamic void spawnShell(int* proc) { // the process will be the shell
             p = p[1];
         }
     }
+    static void cmd_set(int* args) {
+        if(len(args) > 1) BLUESCREEN("cmd_set TODO");
+        for(int i=0; i<len(args); i++)
+            free(args[i]);
+        int* t = env;
+        int* tables = malloc(0);
+        while(t) {
+            appendint(&tables, t);
+            t = t[0];
+        }
+        for(int i=len(tables)-1; i>=0; i--) {
+            int* t = tables[i];
+            write("Env table:\n");
+            int* p = t[1];
+            while(p) {
+                int type = p[1];
+                write(" ");
+                write(type == 0 ? "str" : type == 1 ? "int" : type == 2 ? "fun" : "???");
+                write(" '"); write(p[0]); write("'\n");
+                p = p[3];
+            }
+        }
+        free(tables);
+    }
     
     cmds = {
         {"help", cmd_help, "Displays list of commands"},
         {"echo", cmd_echo, "Prints arguments to the screen"},
         {"exit", cmd_exit, "Exits the shell"},
         {"tree", cmd_tree, "Displays a tree of the file system"},
-        {"processes", cmd_processes, "Shows info about active processes"}
+        {"processes", cmd_processes, "Shows info about active processes"},
+        {"set", cmd_set, "Shows or sets env variables"}
     };
     // ============
     
@@ -625,9 +723,10 @@ static int OSBOOT() {
     // Boot Sequence
     os_log("Booting into mode "); os_log(itoa_no_malloc(os_boot_mode)); os_log("\n");
     fs_init();
+    env_init_global();
     
     if(os_boot_mode == 0) { // Shell mode
-        int* initialProc = new_process(clone("(initialProc)"));
+        int* initialProc = new_process(clone("rootproc"));
         initialProc[1] = initialProcContinue;
         int* shellProc = NULL;
         int* shellDynFunc = NULL;
@@ -635,6 +734,7 @@ static int OSBOOT() {
         
         int* shellStdin;
         int* shellStdout;
+        int* shellEnv = NULL;
         static void requestLine(int w) {
             char ch = 0;
             while(ch != '\n') {
@@ -646,6 +746,8 @@ static int OSBOOT() {
         }
         shellStdin = new_stream(requestLine);
         shellStdout = new_stream(NULL);
+        shellEnv = new_envtable(); // is freed by proc loop
+        shellEnv[0] = global_envtable;
         
         static void onBeforeShellExit(int* proc) {
             // write the last stuff in the output stream since we don't want to miss data before exiting
@@ -673,10 +775,11 @@ static int OSBOOT() {
             if(!shellProc) {
                 os_log("In initial process: starting shell\n");
                 os_log("\n");
-                shellProc = new_process(clone("sh (initial)"));
+                shellProc = new_process(clone("sh initial"));
                 shellProc[3] = shellStdin;
                 shellProc[4] = shellStdout;
                 shellProc[7] = onBeforeShellExit;
+                shellProc[8] = shellEnv;
                 shellDynFunc = load(dynf_ptr(spawnShell));
                 shellDynFunc(shellProc);
                 add_process(shellProc);
