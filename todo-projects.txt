@@ -18,6 +18,9 @@
 - add site easter eggs and that
 - css colors page
 - graph visualizer, directed and undirected, and maybe weighted graphs
+- minesweeper, infinite minesweeper
+- physics engine
+- uuid generator
 
 - make index infinite area middle mouse or arrow keys to move and starting walls for physics & move index.html files to index/ & index search bar maybe using <search>
 	- this page could also save also so you can customize it

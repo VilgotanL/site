@@ -20,8 +20,7 @@
     document.body.addEventListener("contextmenu", (e) => {
         e.preventDefault();
     });
-    // disabled cause wip
-    /*document.body.addEventListener("mousedown", (e) => {
+    document.body.addEventListener("mousedown", (e) => {
         if(e.buttons % 4 >= 2) {
             open_menu();
             justOpened = true;
@@ -29,5 +28,5 @@
             close_menu();
         }
     });
-    */close_menu();
+    close_menu();
 }

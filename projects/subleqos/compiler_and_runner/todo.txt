@@ -1,6 +1,0 @@
-free merge neighboring free chunks
-allow empty returns
-memcpy
-concat, clone
-
-investigate inline funcs called same(same(args))

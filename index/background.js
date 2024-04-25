@@ -169,14 +169,14 @@
         }
     }
     let prevPageX, prevPageY;
-    window.addEventListener("mousedown", (e) => {
+    document.body.addEventListener("mousedown", (e) => {
         prevPageX = e.pageX; prevPageY = e.pageY;
         if((e.buttons % 2 === 1 || e.buttons % 4 >= 2) && drawModes.includes(mode)) {
             let x = Math.floor((e.pageX+xpos)/cellsize), y = Math.floor((e.pageY+ypos)/cellsize);
             mouseDrawLine(x, y, x, y, e.buttons % 2 === 1);
         }
     });
-    window.addEventListener("mousemove", (e) => {
+    document.body.addEventListener("mousemove", (e) => {
         if((e.buttons % 2 === 1 || e.buttons % 4 >= 2) && drawModes.includes(mode)) {
             let x1 = Math.floor((prevPageX+xpos)/cellsize), y1 = Math.floor((prevPageY+ypos)/cellsize), x2 = Math.floor((e.pageX+xpos)/cellsize), y2 = Math.floor((e.pageY+ypos)/cellsize);
             mouseDrawLine(x1, y1, x2, y2, e.buttons % 2 === 1);
@@ -192,7 +192,7 @@
         prevPageX = e.pageX; prevPageY = e.pageY;
     });
     let spaceDown = false;
-    window.addEventListener("keydown", (e) => {
+    document.body.addEventListener("keydown", (e) => {
         if(e.key === " ") {
             if(mode === "Game of Life" && !spaceDown) state.pause = !state.pause;
             spaceDown = true;
@@ -200,12 +200,12 @@
             if(mode === "Game of Life" && state.pause) state.doGen = true;
         }
     });
-    window.addEventListener("keyup", (e) => {
+    document.body.addEventListener("keyup", (e) => {
         if(e.key === " ") {
             spaceDown = false;
         }
     });
-    window.addEventListener("wheel", (e) => {
+    document.body.addEventListener("wheel", (e) => {
         if(true) return;
         cellsizefloat *= 2**(-e.deltaY/500);
         if(cellsizefloat < 1) cellsizefloat = 1;

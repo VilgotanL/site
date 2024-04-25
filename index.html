@@ -36,6 +36,28 @@
             a:visited {
                 color: plum;
             }
+            button {
+                background: #3f3f3f;
+                border-top: 2px solid #5f5f5f;
+                border-left: 2px solid #5f5f5f;
+                border-bottom: 2px solid #111111;
+                border-right: 2px solid #111111;
+            }
+            button:hover {
+                background: #333333;
+                cursor: pointer;
+            }
+            button:active, input {
+                border-top: 2px solid #111111;
+                border-left: 2px solid #111111;
+                border-bottom: 2px solid #5f5f5f;
+                border-right: 2px solid #5f5f5f;
+            }
+            input {
+                background: #3f3f3f;
+                outline: none;
+                font-family: monospace;
+            }
 
             nav {
                 margin: 0;
@@ -208,8 +230,23 @@
         </footer>
 
         <div class="contextmenu">
-            <div class="mode-select"><span class="mode-selected">Interact</span><span>Edit</span><span>Draw</span></div>
+            <div class="mode-select">
+                <span class="mode-selected">Interact mode◀</span>
+                <span>Edit</span>
+                <span>Draw</span>
+            </div>
+            <h3>This Object</h3>
+            <div>Convert ▶</div>
+
+            <h3>Object</h3>
+            <div><button>Duplicate</button><button>Copy</button><button style="color: red;">Delete</button></div>
+            <div>Size: <input value="0,0" /></div>
+            <div>Position: <input value="0,0" /></div>
+            
+            <h3>Global</h3>
             <div>Insert ▶</div>
+            <div>World ▶</div>
+            <div>Camera ▶</div>
         </div>
 
         <script>

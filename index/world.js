@@ -1,7 +1,26 @@
-window.world = {
-    mouseX: 0,
-    mouseY: 0,
-};
+
+
+class World {
+    mouseX = 0;
+    mouseY = 0;
+
+    constructor() {
+
+    }
+}
+
+window.world = new World();
+
+
+
+class Camera {
+    constructor(world) {
+        if(!world) throw new Error("Camera missing world");
+        this.world = world;
+    }
+}
+
+
 
 
 document.body.addEventListener("mousemove", (e) => {
