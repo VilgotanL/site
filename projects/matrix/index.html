@@ -1,0 +1,133 @@
+<!DOCTYPE html> <!-- by VilgotanL -->
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>The Matrix</title>
+        <style>
+            @font-face {
+                font-family: "Good Old DOS";
+                src: url("good_old_dos/Good Old DOS.ttf");
+            }
+
+
+            * {
+                margin: 0;
+                padding: 0;
+                font-family: "Good Old DOS";
+                color: white;
+                letter-spacing: 0;
+                line-height: 1;
+                overflow: hidden;
+                user-select: none;
+                cursor: none;
+            }
+            html, body {
+                width: 100%;
+                height: 100%;
+                display: block;
+            }
+            body {
+                background: black;
+                display: flex;
+                justify-content: center;
+            }
+            pre {
+                width: auto;
+                transform: translate(2px, 0); /* since each character in the font is aligned left with space on right */
+            }
+        </style>
+    </head>
+    <body>
+        <pre>abc</pre>
+
+        <script>
+            const pre = document.querySelector("pre");
+
+            const charWidth = 22;
+            const charHeight = charWidth/22*31.8;
+            let w, h;
+            let spanGrid;
+
+
+            function updateSize() {
+                w = Math.floor(window.innerWidth/charWidth);
+                h = Math.ceil(window.innerHeight/charHeight);
+                
+                spanGrid = [];
+                pre.innerHTML = "";
+                for(let y=0; y<h; y++) {
+                    let row = [];
+                    for(let x=0; x<w; x++) {
+                        const span = document.createElement("span");
+                        span.style.display = "inline-block";
+                        span.style.width = charWidth+"px";
+                        pre.appendChild(span);
+                        row.push(span);
+                    }
+                    spanGrid.push(row);
+                    const br = document.createElement("br");
+                    pre.appendChild(br);
+                }
+            }
+            updateSize();
+
+            document.body.style.fontSize = charHeight+"px";
+
+
+
+            let drops = [];
+
+            function randomChar() {
+                return String.fromCodePoint(33 + Math.floor(Math.random()*(126-32)));
+            }
+
+            let lastTick = Date.now();
+            const TICK_MS = 1000 / 20;
+            let tickCount = 0;
+            const chars_above = 16;
+            function animate() {
+
+                if(Date.now() < lastTick + TICK_MS) {
+                    requestAnimationFrame(animate);
+                    return;
+                }
+                lastTick = Math.max(lastTick + TICK_MS, Date.now()); // make sure it doesnt speed up if it falls behind and then gets good performance again, such as if switch to different tab and back
+
+
+                if(Math.random() < 0.6) {
+                    drops.push({ x: Math.floor(Math.random()*w), y: -1 });
+                }
+
+                for(let drop of drops) {
+                    drop.y++;
+                    if(drop.x >= w || drop.y > h+chars_above) {
+                        drops = drops.filter(d => d !== drop);
+                        continue;
+                    }
+                    if(drop.y < h && drop.y >= 0) {
+                        spanGrid[drop.y][drop.x].style.color = "white";
+                        spanGrid[drop.y][drop.x].innerText = randomChar();
+                    }
+
+                    for(let i=0; i<chars_above+1; i++) {
+                        if(drops.some(d => d.x === drop.x && d.y === drop.y-1-i)) break;
+                        if(drop.y-1-i >= 0 && drop.y-1-i < h) {
+                            spanGrid[drop.y-1-i][drop.x].style.color = `rgb(0, ${Math.round(255*(1-i/chars_above))}, 0)`;
+                            if(Math.random() < 1/15) spanGrid[drop.y-1-i][drop.x].innerText = randomChar();
+                        }
+                    }
+                }
+
+                
+                tickCount++;
+                requestAnimationFrame(animate);
+            }
+            requestAnimationFrame(animate);
+
+            window.addEventListener("resize", () => {
+                updateSize();
+            });
+        </script>
+    </body>
+</html>
