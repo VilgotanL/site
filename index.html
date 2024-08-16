@@ -3,259 +3,187 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>VilgotanL's Home Page</title>
+		<title>VilgotanL's Home Page</title>
 
-        <style>
-            * {
-                box-sizing: border-box;
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                color: #eeeeee;
-            }
-            html {
-                width: 100%;
-                height: 100%;
-                margin: 0;
-                padding: 0;
-            }
-            body {
-                margin: 0;
-                padding: 0;
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                display: flex;
-                flex-direction: column;
-                background: black;
-            }
+		<style>
+			* {
+				box-sizing: border-box;
+				font-family: sans-serif;
+				margin: 0;
+				padding: 0;
+			}
+			:root {
+				font-size: 1.2rem;
+			}
 
-            a {
-                color: Highlight;
-            }
-            a:visited {
-                color: plum;
-            }
-            button {
-                background: #3f3f3f;
-                border-top: 2px solid #5f5f5f;
-                border-left: 2px solid #5f5f5f;
-                border-bottom: 2px solid #111111;
-                border-right: 2px solid #111111;
-            }
-            button:hover {
-                background: #333333;
-                cursor: pointer;
-            }
-            button:active, input {
-                border-top: 2px solid #111111;
-                border-left: 2px solid #111111;
-                border-bottom: 2px solid #5f5f5f;
-                border-right: 2px solid #5f5f5f;
-            }
-            input {
-                background: #3f3f3f;
-                outline: none;
-                font-family: monospace;
-            }
+			h1 {
+				font-size: 2em;
+			}
+			p, a {
+				font-size: 1em;
+			}
+			a {
+				color: #0099ff;
+				text-decoration: none;
+			}
+			input {
+				outline: none;
+			}
 
-            nav {
-                margin: 0;
-                padding-block: 0.3rem;
-                box-sizing: border-box;
-                position: relative;
-                display: flex;
-                justify-content: space-evenly;
-                flex-wrap: wrap;
-                user-select: none;
-            }
-            nav * {
-                font-size: 1.4rem;
-            }
-            nav > details > summary {
-                font-size: 1.5rem;
-            }
-            nav summary {
-                cursor: pointer;
-            }
-            nav details {
-                position: relative;
-            }
-            nav > details > div {
-                position: absolute;
-                padding: 0.2rem;
-                width: max-content;
-                z-index: 1;
-            }
-            nav > details details > div {
-                position: absolute;
-                width: max-content;
-                padding: 0.2rem;
-                left: calc(100% + 0.2rem + 4px);
-                top: 0;
-            }
-            nav details > div {
-                border-top: 4px solid gray;
-                border-left: 4px solid gray;
-                border-bottom: 4px solid #444444;
-                border-right: 4px solid #444444;
-                background: #111111;
-                display: flex;
-                flex-direction: column;
-                margin-left: -4px;
-                margin-top: 2px;
-            }
-            nav > details details > summary {
-                padding-block: 0.1rem;
-            }
+			html {
+				height: 100%;
+				overflow-y: scroll;
+			}
+			body {
+				min-height: 100%;
+				background: #aaaaaa;
+				display: flex;
+				justify-content: center;
+				padding-block: 1rem;
+			}
+			main {
+				width: 50%;
+				background: #ffffff;
+				display: flex;
+				flex-direction: column;
+				padding-block: 1rem;
+				padding-inline: 2rem;
+				gap: 1rem;
+			}
 
-            main {
-                margin: 0;
-                padding: 0 1rem;
-                flex-grow: 1;
-            }
-            main * {
-                user-select: none;
-            }
-            footer {
-                margin: 0;
-                padding: 0 0.2rem;
-                font-size: 1rem;
-                user-select: none;
-            }
+			header {
+				display: flex;
+				justify-content: space-evenly;
+				flex-wrap: wrap;
+				gap: 0.5rem; /* so items dont get too close on small screens */
+				padding-inline: 0.5rem;
+				font-size: 2em;
+				user-select: none;
+			}
 
-            #bg-btn {
-                position: absolute;
-                z-index: 1;
-                background: transparent;
-                border: none;
-                cursor: pointer;
-                bottom: 0;
-                right: 0;
-            }
-            #bg-canvas {
-                position: fixed;
-                width: 100%;
-                height: 100%;
-                left: 0;
-                top: 0;
-                z-index: -1;
-            }
-        </style>
-        <link rel="stylesheet" href="index/contextmenu.css" />
+			section {
+				display: flex;
+				flex-direction: column;
+				gap: 0.6em;
+			}
+
+			div:has(> #search-box) {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 1rem;
+			}
+			#search-box {
+				font-size: 1.6em;
+				width: 14ch;
+				flex: 1;
+			}
+
+
+			section:has(> #projects) {
+				flex: 1;
+			}
+			#projects {
+				flex: 1;
+				border-top: 3px solid gray;
+				border-left: 3px solid gray;
+				border-bottom: 3px solid #aaaaaa;
+				border-right: 3px solid #aaaaaa;
+
+				padding: 0.5rem;
+				font-size: 1.1em;
+			}
+			#projects > h1 {
+				font-size: 1.3em;
+				text-decoration: underline;
+				margin-bottom: 0.5rem;
+			}
+			#projects > a {
+				margin-block: 0.2rem;
+				display: block;
+			}
+		</style>
 	</head>
-    <body>
-        <button id="bg-btn">Game of Life</button>
-        <canvas id="bg-canvas"></canvas>
-        <nav>
-            <details>
-                <summary>Home</summary>
-                <div>
-                    <a href="index.html">Main Page</a>
-                </div>
-            </details>
-            <details>
-                <summary>Tools</summary>
-                <div>
-                    <details>
-                        <summary>File</summary>
-                        <div>
-                            <a href="tools/file-text-viewer/index.html">View file as text</a>
-                        </div>
-                    </details>
-                    <details>
-                        <summary>Tables</summary>
-                        <div>
-                            <a href="tools/ascii-table/index.html">Ascii Table</a>
-                        </div>
-                    </details>
-                    <details>
-                        <summary>Encoding/Decoding</summary>
-                        <div>
-                            <a href="tools/text-coder/index.html">Text Encoder/Decoder</a>
-                        </div>
-                    </details>
-                    <a href="tools/time-viewer/index.html">Current Time</a>
-                    <a href="tools/roblox-fav-games-viewer/index.html">Roblox Favorite Games Viewer</a>
-                    <a href="projects/gifmaker/index.html">GifMaker</a>
-                </div>
-            </details>
-            <details>
-                <summary>Experiments &amp; Projects</summary>
-                <div>
-                    <details>
-                        <summary>Old p5.js projects</summary>
-                        <div>
-                            <a href="p5js/3d_platformer_1/index.html">3D Platformer</a>
-                            <a href="p5js/the_matrix/index.html">The Matrix</a>
-                            <a href="p5js/tetris_1/index.html">Tetris v1</a>
-                            <a href="p5js/a_platformer/index.html">A Platformer</a>
-                            <a href="p5js/3d_rendering_engine_test1/index.html">3D Rendering Engine testv1</a>
-                            <a href="p5js/3d_rendering_engine_test2/index.html">3D Rendering Engine testv2</a>
-                            <a href="p5js/chaos_game_serpinski_more/index.html">Chaos Game Serpinski</a>
-                            <a href="p5js/early_platformer/index.html">Early Platformer</a>
-                            <a href="p5js/first_p5_project/index.html">First p5.js Project</a>
-                        </div>
-                    </details>
-                    <details>
-                        <summary>Visualizations</summary>
-                        <div>
-                            <a href="projects/sorts-visual/index.html">WIP Sorts</a>
-                        </div>
-                    </details>
-                    <a href="projects/pichudnovsky/index.html">Chudnovsky Pi Calc</a>
-                    <a href="projects/matrix/index.html">The Matrix</a>
-                </div>
-            </details>
-            <details>
-                <summary>Articles</summary>
-                <div>
-                    <a href="articles/cssdarktheme.html">Easy CSS Dark Theme</a>
-                    <a href="projects/top_infinity_numbers/index.html">Top Infinity Numbers</a>
-                </div>
-            </details>
-        </nav>
-        <main>
-            <h1>Home</h1>
+	<body>
+		<main>
+			<header>
+				<a href="index.html">Home</a>
+				<a href="index.html">Games</a>
+				<a href="index.html">Tools</a>
+				<a href="index.html">Other</a>
+			</header>
+			<hr />
+			<section>
+				<h1>Home</h1>
+				<p>Text text text.</p>
+				<p>Text text text. Lorem ipsum dolor sit amet. Never gonna give you up, never gonna let you down.</p>
+			</section>
+			<section>
+				<div>
+					<h1>Projects</h1>
+					<input type="text" id="search-box" placeholder="Search" />
+				</div>
 
-            <p>A lot of stuff is unfinished / work in progress / work planned</p>
-            <p>List of unlisted projects except within this list</p>
-            <ul>
-                <li><a href="projects/ios-camera-maze-solver/index.html">IOS Camera Maze Solver</a></li>
-                <li><a href="projects/parsergen4/index.html">WIP PARSER GEN 4!</a></li>
-                <li><a href="projects/mathcomplicator/index.html">WIP (currently broken) Math complicator 1000</a></li>
-            </ul>
-        </main>
-        <footer>
-            - VilgotanL
-        </footer>
+				<div id="projects">
+					<h1>Tools</h1>
+                    <a href="2024/tools/file-text-viewer/index.html">View file as text</a>
+                    <a href="2024/tools/ascii-table/index.html">Ascii Table</a>
+                    <a href="2024/tools/text-coder/index.html">Text Encoder/Decoder</a>
+                    <a href="2024/tools/time-viewer/index.html">Current Time</a>
+                    <a href="2024/tools/roblox-fav-games-viewer/index.html">Roblox Favorite Games Viewer</a>
+                    <a href="2024/projects/gifmaker/index.html">GifMaker</a>
+					
+					<h1>Old p5.js projects</h1>
+					<a href="2024/p5js/3d_platformer_1/index.html">3D Platformer</a>
+					<a href="2024/p5js/the_matrix/index.html">The Matrix</a>
+					<a href="2024/p5js/tetris_1/index.html">Tetris v1</a>
+					<a href="2024/p5js/a_platformer/index.html">A Platformer</a>
+					<a href="2024/p5js/3d_rendering_engine_test1/index.html">3D Rendering Engine testv1</a>
+					<a href="2024/p5js/3d_rendering_engine_test2/index.html">3D Rendering Engine testv2</a>
+					<a href="2024/p5js/chaos_game_serpinski_more/index.html">Chaos Game Serpinski</a>
+					<a href="2024/p5js/early_platformer/index.html">Early Platformer</a>
+					<a href="2024/p5js/first_p5_project/index.html">First p5.js Project</a>
 
-        <div class="contextmenu">
-            <div class="mode-select">
-                <span class="mode-selected">Interact mode◀</span>
-                <span>Edit</span>
-                <span>Draw</span>
-            </div>
-            <h3>This Object</h3>
-            <div>Convert ▶</div>
+					<h1>Misc</h1>
+					<a href="2024/projects/sorts-visual/index.html">WIP Sorts</a>
+                    <a href="2024/projects/pichudnovsky/index.html">Chudnovsky Pi Calc</a>
+                    <a href="2024/projects/matrix/index.html">The Matrix</a>
+                    <a href="2024/articles/cssdarktheme.html">Easy CSS Dark Theme</a>
+                    <a href="2024/projects/top_infinity_numbers/index.html">Top Infinity Numbers</a>
 
-            <h3>Object</h3>
-            <div><button>Duplicate</button><button>Copy</button><button style="color: red;">Delete</button></div>
-            <div>Size: <input value="0,0" /></div>
-            <div>Position: <input value="0,0" /></div>
-            
-            <h3>Global</h3>
-            <div>Insert ▶</div>
-            <div>World ▶</div>
-            <div>Camera ▶</div>
-        </div>
+					<h1>Experimental</h1>
+					<a href="2024/projects/ios-camera-maze-solver/index.html">IOS Camera Maze Solver</a>
+					<a href="2024/projects/parsergen4/index.html">WIP PARSER GEN 4!</a>
+					<a href="2024/projects/mathcomplicator/index.html">WIP (currently broken) Math complicator 1000</a>
+				</div>
+			</section>
+		</main>
 
-        <script>
-            if(!(["vilgotanl.github.io", "vilgotanl.netlify.app"].includes(location.hostname) || location.hostname.endsWith(".archive.org")) && location.protocol !== "file:") location.replace("https://vilgotanl.github.io/");
-        </script>
-        <script src="index/world.js"></script>
-        <script src="index/background.js"></script>
-        <script src="index/physics.js"></script>
-        <script src="index/contextmenu.js"></script>
-    </body>
+
+		<script>
+			const searchBox = document.querySelector("#search-box");
+			const projects = document.querySelector("#projects");
+			searchBox.value = "";
+
+			function match(text, search) {
+				return text.toLowerCase().includes(search.toLowerCase());
+			}
+
+			searchBox.addEventListener("input", (e) => {
+				for(let [i, child] of Array.from(projects.children).entries()) {
+					if(child.tagName === "A") {
+						child.style.display = match(child.innerText, searchBox.value) ? "block" : "none";
+					} else if(child.tagName === "H1") {
+						let hasItems = false;
+						for(let j=i+1; j<projects.children.length && projects.children[j].tagName === "A"; j++) {
+							if(match(projects.children[j].innerText, searchBox.value)) {
+								hasItems = true;
+								break;
+							}
+						}
+						child.style.display = hasItems ? "block" : "none";
+					}
+				}
+			});
+		</script>
+	</body>
 </html>

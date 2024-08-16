@@ -31,6 +31,7 @@
                 background: black;
                 display: flex;
                 justify-content: center;
+                filter: blur(1px);
             }
             pre {
                 width: auto;
@@ -42,6 +43,8 @@
         <pre>abc</pre>
 
         <script>
+            // TODO: make some drops go faster? make glow like https://www.youtube.com/watch?v=QvhlCNw9CJE
+
             const pre = document.querySelector("pre");
 
             const charWidth = 22;

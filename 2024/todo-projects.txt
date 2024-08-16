@@ -21,6 +21,8 @@
 - minesweeper, infinite minesweeper
 - physics engine
 - uuid generator
+- javascript runner
+- other languages online
 
 - make index infinite area middle mouse or arrow keys to move and starting walls for physics & move index.html files to index/ & index search bar maybe using <search>
 	- this page could also save also so you can customize it
